@@ -245,6 +245,8 @@ gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
 gdi32.DeleteDC.restype = ctypes.c_bool
 gdi32.GetDIBits.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
 gdi32.GetDIBits.restype = ctypes.c_int
+gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]
+gdi32.BitBlt.restype = ctypes.c_bool
 
 
 class BITMAPINFOHEADER(ctypes.Structure):
@@ -334,8 +336,8 @@ def _enum_windows() -> list[dict[str, Any]]:
     return results
 
 
-def _capture_window_screenshot(hwnd: int, max_width: int = 1280) -> bytes:
-    """Capture window screenshot using PrintWindow or BitBlt fallback. Returns PNG bytes."""
+def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "jpeg") -> bytes:
+    """Capture window screenshot using PrintWindow or BitBlt fallback. Returns image bytes."""
     from PIL import Image as PILImage
     import io
 
@@ -410,10 +412,13 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280) -> bytes:
         new_height = int(height * ratio)
         img = img.resize((max_width, new_height), PILImage.LANCZOS)
 
-    # Convert to PNG bytes
+    # Convert to bytes (JPEG is 10x smaller and more compatible, fallback to PNG)
     output = io.BytesIO()
-    img.save(output, format="PNG", optimize=True)
-    png_data = output.getvalue()
+    if format.lower() in ("jpeg", "jpg"):
+        img.save(output, format="JPEG", quality=85)
+    else:
+        img.save(output, format="PNG", optimize=True)
+    img_data = output.getvalue()
 
     # Cleanup
     gdi32.SelectObject(hdc_mem, old_bmp)
@@ -421,7 +426,7 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280) -> bytes:
     gdi32.DeleteDC(hdc_mem)
     user32.ReleaseDC(hwnd, hdc)
 
-    return png_data
+    return img_data
 
 
 def _activate_window(hwnd: int) -> bool:
@@ -838,8 +843,8 @@ async def get_window_state(hwnd: Optional[int] = None, include_screenshot: bool 
         # Screenshot
         if include_screenshot:
             try:
-                png_data = _capture_window_screenshot(hwnd, max_screenshot_width)
-                img = Image(data=png_data, format="png")
+                img_data = _capture_window_screenshot(hwnd, max_screenshot_width, format="jpeg")
+                img = Image(data=img_data, format="jpeg")
                 result.append(img)
             except Exception as e:
                 result.append(f"Screenshot error: {e}")

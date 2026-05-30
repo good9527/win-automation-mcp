@@ -900,7 +900,11 @@ def screenshot(
         new_height = int(height * ratio)
         img = img.resize((max_width, new_height), PILImage.LANCZOS)
 
-    img.save(output_path, "PNG")
+    ext = os.path.splitext(output_path)[1].lower()
+    if ext in (".jpg", ".jpeg"):
+        img.save(output_path, "JPEG", quality=85)
+    else:
+        img.save(output_path, "PNG", optimize=True)
 
     # Update global tracking state
     _screenshot_counter += 1
@@ -1362,7 +1366,7 @@ def _batch_execute_local(command_name: str, args: dict) -> dict:
             return {"ok": True, "message": result}
         elif command_name == "screenshot":
             hwnd = args.get("hwnd")
-            output = args.get("output", os.path.join(os.path.dirname(__file__), "screenshot.png"))
+            output = args.get("output", os.path.join(os.path.dirname(__file__), "screenshot.jpg"))
             max_w = args.get("max_width", 1280)
             result = screenshot(hwnd, output, max_w)
             return result
@@ -1394,7 +1398,7 @@ def main() -> None:
         print("  list_windows                                List all visible windows")
         print("  list_apps                                   List apps grouped by process")
         print("  get_window <hwnd>                           Get/validate a window handle (rehydrate)")
-        print("  screenshot <hwnd> [output.png]              Capture window screenshot (returns JSON with id)")
+        print("  screenshot <hwnd> [output.jpg]              Capture window screenshot (returns JSON with id)")
         print("  screenshot_b64 <hwnd>                       Capture screenshot as base64 PNG")
         print("  accessibility <hwnd>                        Get accessibility tree + focused element")
         print("  click <hwnd> <x> <y> [button] [screenshot_id] Click at coordinates")
@@ -1437,7 +1441,7 @@ def main() -> None:
         output = (
             sys.argv[3]
             if len(sys.argv) > 3
-            else os.path.join(os.path.dirname(__file__), "screenshot.png")
+            else os.path.join(os.path.dirname(__file__), "screenshot.jpg")
         )
         result = screenshot(hwnd, output)
         print(json.dumps(result, ensure_ascii=False))

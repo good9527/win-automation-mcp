@@ -41,8 +41,11 @@ Returns:
 
 ### 3. Screenshot
 ```bash
-python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" screenshot <hwnd> [output.png]
+python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" screenshot <hwnd> [output.jpg]
 ```
+> [!IMPORTANT]
+> ALWAYS use `.jpg` or `.jpeg` (e.g. `screenshot.jpg`) rather than `.png`. JPEG images are 10x smaller in file size (e.g., 80KB vs 1.5MB for PNG), which drastically speeds up uploading to multimodal LLM APIs and **prevents HTTP 400 Param Incorrect errors** caused by API payload limits.
+
 Returns: `{id, path, width, height, dpi_scale, window_hwnd}`
 
 ### 4. Screenshot (base64)
