@@ -39,20 +39,26 @@ Returns:
 }]
 ```
 
-### 3. Screenshot
+### 3. Screenshot (save to file)
 ```bash
 python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" screenshot <hwnd> [output.jpg]
 ```
 > [!IMPORTANT]
-> ALWAYS use `.jpg` or `.jpeg` (e.g. `screenshot.jpg`) rather than `.png`. JPEG images are 10x smaller in file size (e.g., 80KB vs 1.5MB for PNG), which drastically speeds up uploading to multimodal LLM APIs and **prevents HTTP 400 Param Incorrect errors** caused by API payload limits.
+> ALWAYS use `.jpg` or `.jpeg` (e.g. `screenshot.jpg`) rather than `.png`. JPEG images are 10x smaller in file size, which prevents HTTP 400 errors from API payload limits.
 
 Returns: `{id, path, width, height, dpi_scale, window_hwnd}`
 
-### 4. Screenshot (base64)
+### 4. Screenshot (base64 — recommended for viewing)
 ```bash
 python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" screenshot_b64 <hwnd>
 ```
-Returns: `{base64, width, height, dpi_scale}` — PNG encoded as base64 string.
+Returns: `{base64, width, height, dpi_scale}` — image encoded as base64 string.
+
+> [!CAUTION]
+> **Image viewing compatibility**: Some AI clients' Read/file tools do NOT properly render `.jpg`/`.png` files as visual content — they degrade to plain text file paths, causing the model to never actually "see" the screenshot. If this happens:
+> 1. **Preferred**: Use `screenshot_b64` instead of `screenshot`. The base64 data is returned directly in command output — no file Read needed.
+> 2. **Alternative**: After saving a screenshot file, copy it to clipboard and paste it into the chat instead of using the Read tool.
+> 3. **MCP mode**: If running as an MCP server, `get_window_state` returns images through the MCP protocol which always works correctly.
 
 ### 5. Accessibility Tree
 ```bash
