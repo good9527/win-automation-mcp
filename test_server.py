@@ -5,6 +5,14 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Configure stdout encoding to prevent Unicode errors on Windows consoles
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+
 from server import _enum_windows, _capture_window_screenshot, _build_accessibility_tree
 
 def test_enum_windows():
