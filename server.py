@@ -1015,7 +1015,7 @@ async def scroll(x: int, y: int, scroll_y: int, hwnd: Optional[int] = None, scro
     Args:
         x: X coordinate to scroll from
         y: Y coordinate to scroll from
-        scroll_y: Vertical scroll amount (positive = scroll up, negative = scroll down)
+        scroll_y: Vertical scroll amount (positive = scroll down, negative = scroll up)
         hwnd: Window handle. If not provided, falls back to the active target.
         scroll_x: Horizontal scroll amount (positive = scroll right, negative = scroll left)
         screenshot_width: Width of screenshot for dynamic coordinate scaling.
@@ -1051,7 +1051,7 @@ async def scroll(x: int, y: int, scroll_y: int, hwnd: Optional[int] = None, scro
 
         # In DPI-aware process, pyautogui expects physical screen coordinates
         if scroll_y != 0:
-            pyautogui.scroll(scroll_y, x=screen_x, y=screen_y)
+            pyautogui.scroll(-scroll_y, x=screen_x, y=screen_y)
 
         if scroll_x != 0:
             pyautogui.hscroll(scroll_x, x=screen_x, y=screen_y)

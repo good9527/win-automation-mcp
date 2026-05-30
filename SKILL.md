@@ -91,7 +91,7 @@ Keys: Return, Escape, space, Tab, BackSpace, Delete, Up, Down, Left, Right, F1-F
 ```bash
 python "tools.py" scroll <hwnd> <x> <y> <dy> [screenshot_id]
 ```
-dy>0 scrolls up, dy<0 scrolls down (standard wheel delta). Cursor moves to position first.
+dy>0 scrolls down, dy<0 scrolls up. Cursor moves to position first.
 
 ### 10. Drag
 ```bash
