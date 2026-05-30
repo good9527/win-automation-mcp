@@ -1,4 +1,4 @@
-# 💻 电脑控制技能 (win-automation-mcp)
+﻿# 💻 电脑控制技能 (win-automation-mcp)
 
 极速、像素级精准、零垃圾文件的 Windows 桌面自动化 MCP 服务器，为大语言模型（如 Claude 3.5 Sonnet、Cursor、Windsurf 等）赋予完美的物理级 Windows 电脑控制技能。
 

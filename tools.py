@@ -1070,7 +1070,7 @@ def scroll(
     scroll_y: int,
     screenshot_id: Optional[int] = None,
 ) -> str:
-    """Scroll at screenshot-pixel coordinates. Negative scroll_y = scroll up.
+    """Scroll at screenshot-pixel coordinates. Positive scroll_y = scroll up, negative scroll_y = scroll down.
     Uses helper server for cross-process input (works with NW.js/CEF apps)."""
     hwnd = _resolve_target(hwnd)
 
@@ -1079,7 +1079,7 @@ def scroll(
         ss_info = _get_screenshot_size(screenshot_id)
         result = _helper_post("/scroll", {
             "hwnd": hwnd, "x": x, "y": y,
-            "delta": -scroll_y * 120, "clicks": abs(scroll_y),
+            "delta": scroll_y * 120, "clicks": abs(scroll_y),
             "activate": True,
             "screenshot_width": ss_info["width"],
             "screenshot_height": ss_info["height"],
@@ -1093,7 +1093,7 @@ def scroll(
     screen_x, screen_y, debug = _scale_coords(hwnd, x, y, screenshot_id)
     user32.SetCursorPos(screen_x, screen_y)
     time.sleep(0.05)
-    wheel_delta = -scroll_y * WHEEL_DELTA
+    wheel_delta = scroll_y * WHEEL_DELTA
     user32.mouse_event(0x0800, 0, 0, wheel_delta, None)
 
     return f"Scrolled: dy={scroll_y} at {debug}"

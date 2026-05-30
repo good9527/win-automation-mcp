@@ -431,7 +431,27 @@ def _get_process_path(pid: int) -> str:
 # ---------------------------------------------------------------------------
 # Persistent state
 # ---------------------------------------------------------------------------
-_state: dict = {}
+STATE_FILE = os.path.join(os.path.expanduser("~"), ".win-auto-state.json")
+
+
+def _load_state() -> dict:
+    """Load persistent state from disk."""
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _save_state(state: dict) -> None:
+    """Save persistent state to disk."""
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 
 def _set_clipboard_text(text: str) -> None:
@@ -631,7 +651,7 @@ class HelperHandler(BaseHTTPRequestHandler):
         # Auto-resolve hwnd from state when not provided
         if path in ("/click", "/type_text", "/press_key", "/scroll"):
             if "hwnd" not in data or data["hwnd"] is None:
-                target = _state.get("target_hwnd")
+                target = _load_state().get("target_hwnd")
                 if target:
                     data["hwnd"] = target
 
@@ -1002,19 +1022,21 @@ class HelperHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)})
 
     def _handle_get_state(self, params: dict):
+        state = _load_state()
         key = params.get("key", [None])[0]
         if key:
-            if key in _state:
-                self._send_json({key: _state[key]})
+            if key in state:
+                self._send_json({key: state[key]})
             else:
                 self._send_json({"error": f"Key '{key}' not found"})
         else:
-            self._send_json({"state": _state})
+            self._send_json({"state": state})
 
     def _handle_set_state(self, data: dict):
-        global _state
-        _state.update(data)
-        self._send_json({"ok": True, "state": _state})
+        state = _load_state()
+        state.update(data)
+        _save_state(state)
+        self._send_json({"ok": True, "state": state})
 
     def _handle_batch(self, data: dict):
         commands = data.get("commands", [])
@@ -1063,7 +1085,7 @@ class HelperHandler(BaseHTTPRequestHandler):
         hwnd = data.get("hwnd")
         if hwnd:
             return hwnd
-        return _state.get("target_hwnd")
+        return _load_state().get("target_hwnd")
 
 
 # ---------------------------------------------------------------------------
