@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary diagnostic captures
+test_ocr_input.png
+test_raw_ocr.txt
+win_auto_ocr_*
+test_ocr_output.json
+
+# Local config & state
+.win-auto-state.json
+.vscode/
+.idea/
+.gemini/
