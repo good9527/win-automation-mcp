@@ -992,6 +992,7 @@ class HelperHandler(BaseHTTPRequestHandler):
             with open(result["path"], "rb") as f:
                 png_data = f.read()
             self._send_json({
+                "text": "Captured window screenshot.",
                 "base64": base64.b64encode(png_data).decode("ascii"),
                 "width": result["width"],
                 "height": result["height"],

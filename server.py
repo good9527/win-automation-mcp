@@ -845,6 +845,8 @@ async def get_window_state(hwnd: Optional[int] = None, include_screenshot: bool 
             try:
                 img_data = _capture_window_screenshot(hwnd, max_screenshot_width, format="jpeg")
                 img = Image(data=img_data, format="jpeg")
+                # Add text descriptor to prevent 400 "text is not set" in strict clients/models like MiMo
+                result.append("Captured screenshot of target window state:")
                 result.append(img)
             except Exception as e:
                 result.append(f"Screenshot error: {e}")

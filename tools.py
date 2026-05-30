@@ -1553,6 +1553,7 @@ def main() -> None:
                     png_data = f.read()
                 import base64 as _b64
                 result = {
+                    "text": "Captured window screenshot.",
                     "base64": _b64.b64encode(png_data).decode("ascii"),
                     "width": result["width"],
                     "height": result["height"],
