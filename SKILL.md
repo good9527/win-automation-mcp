@@ -62,10 +62,11 @@ Returns: element tree with indexes + focused_element + selected_text
 
 ### 6. Click
 ```bash
-python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" click <hwnd> <x> <y> [button] [screenshot_id]
+python "C:/Users/19901/Desktop/win-automation-mcp/tools.py" click <hwnd> <x> <y> [button] [clicks] [screenshot_id]
 ```
 - Coordinates are in screenshot space, auto-scaled to window
 - Uses helper server for cross-process input (works with Chromium/NW.js apps)
+- **Set `clicks=2` for double-click** (e.g. open file, play song in playlist)
 
 ### 7. Type Text (Unicode/Chinese supported)
 ```bash

@@ -55,7 +55,7 @@
 | `list_windows` | 扁平化列出所有打开的窗口句柄、PID 及对应进程信息 | 无 |
 | `get_window` | 自动验证、重绑或获取特定句柄（HWND）的详细可见状态 | `hwnd` (可选) |
 | `get_window_state` | 捕获当前窗口的实时截图并生成 Ephemeral（临时级）无障碍树索引 | `hwnd` (可选), `include_screenshot` |
-| `click` | 在指定坐标或基于无障碍树 Ephemeral Index 精准点击 UI 元素 | `hwnd` (可选), `x`, `y`, `index` |
+| `click` | 在指定坐标或基于无障碍树 Ephemeral Index 精准点击 UI 元素，**支持双击**（`clicks=2`）| `hwnd` (可选), `x`, `y`, `index`, `clicks` |
 | `type_text` | 将文本内容高效、无阻碍地键入至当前激活的输入框（中文/Unicode 100% 支持）| `text`, `hwnd` (可选) |
 | `press_key` | 执行单键或组合键快捷键动作（如 `Control_L+v`, `Alt_L+F4`） | `keys`, `hwnd` (可选) |
 | `scroll` | 在指定的窗口物理坐标上模拟鼠标滚轮滚动 | `x`, `y`, `scroll_y`, `hwnd` (可选) |

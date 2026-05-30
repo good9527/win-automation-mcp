@@ -932,10 +932,12 @@ def click(
     x: int,
     y: int,
     button: str = "left",
+    clicks: int = 1,
     screenshot_id: Optional[int] = None,
 ) -> str:
     """Click at screenshot-pixel coordinates, scaled to real window position.
-    Uses helper server for cross-process input (works with NW.js/CEF apps)."""
+    Uses helper server for cross-process input (works with NW.js/CEF apps).
+    Set clicks=2 for double-click (e.g. open file, play song)."""
     hwnd = _resolve_target(hwnd)
 
     # Try helper server first
@@ -943,13 +945,14 @@ def click(
         ss_info = _get_screenshot_size(screenshot_id)
         result = _helper_post("/click", {
             "hwnd": hwnd, "x": x, "y": y,
-            "button": button, "clicks": 1,
+            "button": button, "clicks": clicks,
             "activate": True,
             "screenshot_width": ss_info["width"],
             "screenshot_height": ss_info["height"],
         })
         if "error" not in result:
-            return f"Clicked ({button}): screen({result.get('screen_x',0)},{result.get('screen_y',0)})"
+            click_type = "Double-clicked" if clicks == 2 else f"Clicked(x{clicks})" if clicks > 2 else "Clicked"
+            return f"{click_type} ({button}): screen({result.get('screen_x',0)},{result.get('screen_y',0)})"
 
     # Fallback to direct implementation
     activate_window(hwnd)
@@ -958,16 +961,20 @@ def click(
     user32.SetCursorPos(screen_x, screen_y)
     time.sleep(0.05)
 
-    if button == "right":
-        user32.mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, None)
-        time.sleep(0.05)
-        user32.mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, None)
-    else:
-        user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, None)
-        time.sleep(0.05)
-        user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, None)
+    for i in range(clicks):
+        if i > 0:
+            time.sleep(0.05)  # Inter-click delay (must be <500ms for OS to register as multi-click)
+        if button == "right":
+            user32.mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, None)
+            time.sleep(0.02)
+            user32.mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, None)
+        else:
+            user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, None)
+            time.sleep(0.02)
+            user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, None)
 
-    return f"Clicked ({button}): {debug}"
+    click_type = "Double-clicked" if clicks == 2 else f"Clicked(x{clicks})" if clicks > 2 else "Clicked"
+    return f"{click_type} ({button}): {debug}"
 
 
 # ---------------------------------------------------------------------------
@@ -1343,8 +1350,9 @@ def _batch_execute_local(command_name: str, args: dict) -> dict:
             x = args.get("x", 0)
             y = args.get("y", 0)
             button = args.get("button", "left")
+            clicks = args.get("clicks", 1)
             screenshot_id = args.get("screenshot_id")
-            result = click(hwnd, x, y, button, screenshot_id)
+            result = click(hwnd, x, y, button, clicks, screenshot_id)
             return {"ok": True, "message": result}
         elif command_name == "type":
             hwnd = args.get("hwnd")
@@ -1401,7 +1409,7 @@ def main() -> None:
         print("  screenshot <hwnd> [output.jpg]              Capture window screenshot (returns JSON with id)")
         print("  screenshot_b64 <hwnd>                       Capture screenshot as base64 PNG")
         print("  accessibility <hwnd>                        Get accessibility tree + focused element")
-        print("  click <hwnd> <x> <y> [button] [screenshot_id] Click at coordinates")
+        print("  click <hwnd> <x> <y> [button] [clicks] [screenshot_id] Click at coordinates (clicks=2 for double-click)")
         print("  type <hwnd> <text>                          Type/paste text via clipboard")
         print("  key <hwnd> <keys>                           Press key combo (e.g. ctrl+a)")
         print("  scroll <hwnd> <x> <y> <dy> [screenshot_id] Scroll at coordinates")
@@ -1463,8 +1471,9 @@ def main() -> None:
         hwnd = int(sys.argv[2])
         x, y = int(sys.argv[3]), int(sys.argv[4])
         button = sys.argv[5] if len(sys.argv) > 5 else "left"
-        screenshot_id = int(sys.argv[6]) if len(sys.argv) > 6 else None
-        print(click(hwnd, x, y, button, screenshot_id))
+        clicks = int(sys.argv[6]) if len(sys.argv) > 6 else 1
+        screenshot_id = int(sys.argv[7]) if len(sys.argv) > 7 else None
+        print(click(hwnd, x, y, button, clicks, screenshot_id))
 
     # ------------------------------------------------------------------
     elif cmd == "type":
