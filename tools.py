@@ -979,17 +979,22 @@ def main() -> None:
             import tempfile, base64 as _b64
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                 tmp_path = tmp.name
-            result = screenshot(hwnd, tmp_path, max_w)
-            if "error" not in result:
-                with open(tmp_path, "rb") as f:
-                    png_data = f.read()
-                result = {
-                    "text": "Captured window screenshot.",
-                    "base64": _b64.b64encode(png_data).decode("ascii"),
-                    "width": result["width"], "height": result["height"],
-                    "dpi_scale": result.get("dpi_scale", 1.0),
-                }
-                os.unlink(tmp_path)
+            try:
+                result = screenshot(hwnd, tmp_path, max_w)
+                if "error" not in result:
+                    with open(tmp_path, "rb") as f:
+                        png_data = f.read()
+                    result = {
+                        "text": "Captured window screenshot.",
+                        "base64": _b64.b64encode(png_data).decode("ascii"),
+                        "width": result["width"], "height": result["height"],
+                        "dpi_scale": result.get("dpi_scale", 1.0),
+                    }
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
         print(json.dumps(result, ensure_ascii=False))
 
     elif cmd == "state":
