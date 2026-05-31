@@ -51,6 +51,21 @@ HELPER_URL = "http://127.0.0.1:18765"
 _helper_process = None
 
 
+def _cleanup_helper():
+    """Terminate helper process on exit if we spawned it."""
+    global _helper_process
+    if _helper_process and _helper_process.poll() is None:
+        try:
+            _helper_process.terminate()
+            _helper_process.wait(timeout=2)
+        except Exception:
+            pass
+
+
+import atexit
+atexit.register(_cleanup_helper)
+
+
 def _ensure_helper():
     """Auto-start the helper server if not running."""
     global _helper_process
