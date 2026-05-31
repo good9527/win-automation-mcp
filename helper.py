@@ -117,10 +117,12 @@ def _activate_window(hwnd: int) -> bool:
         fg_tid = user32.GetWindowThreadProcessId(fg, None)
         my_tid = kernel32.GetCurrentThreadId()
         user32.AttachThreadInput(my_tid, fg_tid, True)
-        user32.BringWindowToTop(hwnd)
-        user32.ShowWindow(hwnd, SW_RESTORE)
-        user32.SetForegroundWindow(hwnd)
-        user32.AttachThreadInput(my_tid, fg_tid, False)
+        try:
+            user32.BringWindowToTop(hwnd)
+            user32.ShowWindow(hwnd, SW_RESTORE)
+            user32.SetForegroundWindow(hwnd)
+        finally:
+            user32.AttachThreadInput(my_tid, fg_tid, False)
         return user32.GetForegroundWindow() == hwnd
     except Exception:
         return False
@@ -216,49 +218,49 @@ def _capture_screenshot(hwnd: int, max_width: int = 1280) -> dict:
         hdc_mem = gdi32.CreateCompatibleDC(hdc)
         hbitmap = gdi32.CreateCompatibleBitmap(hdc, log_w, log_h)
         old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
+        try:
+            captured = user32.PrintWindow(hwnd, hdc_mem, 0x00000002)
+            if not captured:
+                captured = user32.PrintWindow(hwnd, hdc_mem, 0)
 
-        captured = user32.PrintWindow(hwnd, hdc_mem, 0x00000002)
-        if not captured:
-            captured = user32.PrintWindow(hwnd, hdc_mem, 0)
+            if captured:
+                width = log_w
+                height = log_h
+            else:
+                # --- Capture method 3: BitBlt ---
+                gdi32.SelectObject(hdc_mem, old_bmp)
+                gdi32.DeleteObject(hbitmap)
+                gdi32.DeleteDC(hdc_mem)
+                user32.ReleaseDC(hwnd, hdc)
 
-        if captured:
-            width = log_w
-            height = log_h
-        else:
-            # --- Capture method 3: BitBlt ---
+                hdc_screen = user32.GetDC(0)
+                hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+                hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
+                old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
+                gdi32.BitBlt(hdc_mem, 0, 0, win_w, win_h,
+                             hdc_screen, rect.left, rect.top, SRCCOPY)
+                user32.ReleaseDC(0, hdc_screen)
+                width = win_w
+                height = win_h
+
+            bmi = BITMAPINFO()
+            bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+            bmi.bmiHeader.biWidth = width
+            bmi.bmiHeader.biHeight = -height
+            bmi.bmiHeader.biPlanes = 1
+            bmi.bmiHeader.biBitCount = 32
+            bmi.bmiHeader.biCompression = 0
+
+            buf_size = width * height * 4
+            buf = ctypes.create_string_buffer(buf_size)
+            gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
+
+            img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
+        finally:
             gdi32.SelectObject(hdc_mem, old_bmp)
             gdi32.DeleteObject(hbitmap)
             gdi32.DeleteDC(hdc_mem)
             user32.ReleaseDC(hwnd, hdc)
-
-            hdc_screen = user32.GetDC(0)
-            hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
-            hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
-            old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
-            gdi32.BitBlt(hdc_mem, 0, 0, win_w, win_h,
-                         hdc_screen, rect.left, rect.top, SRCCOPY)
-            user32.ReleaseDC(0, hdc_screen)
-            width = win_w
-            height = win_h
-
-        bmi = BITMAPINFO()
-        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-        bmi.bmiHeader.biWidth = width
-        bmi.bmiHeader.biHeight = -height
-        bmi.bmiHeader.biPlanes = 1
-        bmi.bmiHeader.biBitCount = 32
-        bmi.bmiHeader.biCompression = 0
-
-        buf_size = width * height * 4
-        buf = ctypes.create_string_buffer(buf_size)
-        gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
-
-        img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
-
-        gdi32.SelectObject(hdc_mem, old_bmp)
-        gdi32.DeleteObject(hbitmap)
-        gdi32.DeleteDC(hdc_mem)
-        user32.ReleaseDC(hwnd, hdc)
 
     img = img.convert("RGB")
 
