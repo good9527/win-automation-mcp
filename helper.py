@@ -591,6 +591,12 @@ class HelperHandler(BaseHTTPRequestHandler):
         for cmd in commands:
             cmd_path = cmd.get("path", "")
             cmd_data = cmd.get("data", {})
+            # Resolve target_hwnd for sub-commands that need it
+            if cmd_path in ("/click", "/type_text", "/press_key", "/scroll", "/activate"):
+                if "hwnd" not in cmd_data or cmd_data["hwnd"] is None:
+                    target = _load_state().get("target_hwnd")
+                    if target:
+                        cmd_data["hwnd"] = target
             result = self._dispatch_command(cmd_path, cmd_data)
             results.append({"path": cmd_path, "result": result})
         self._send_json({"results": results})

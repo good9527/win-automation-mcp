@@ -51,6 +51,15 @@ HELPER_URL = "http://127.0.0.1:18765"
 _helper_process = None
 
 
+def _parse_int(value: str, name: str = "value") -> int:
+    """Parse string to int with user-friendly error message."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        print(f"Error: {name} must be a number, got '{value}'")
+        sys.exit(1)
+
+
 def _ensure_helper():
     """Auto-start the helper server if not running."""
     global _helper_process
@@ -858,61 +867,62 @@ def main() -> None:
     elif cmd == "get_window":
         if len(sys.argv) < 3:
             print("Error: hwnd required"); sys.exit(1)
-        print(get_window(int(sys.argv[2])))
+        hwnd = _parse_int(sys.argv[2], "hwnd")
+        print(get_window(hwnd))
 
     elif cmd == "screenshot":
         if len(sys.argv) < 3:
             print("Error: hwnd required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
+        hwnd = _parse_int(sys.argv[2], "hwnd")
         output = sys.argv[3] if len(sys.argv) > 3 else os.path.join(os.path.dirname(__file__), "screenshot.jpg")
         print(json.dumps(screenshot(hwnd, output), ensure_ascii=False))
 
     elif cmd == "accessibility":
         if len(sys.argv) < 3:
             print("Error: hwnd required"); sys.exit(1)
-        print(json.dumps(build_accessibility_tree(int(sys.argv[2])), ensure_ascii=False))
+        print(json.dumps(build_accessibility_tree(_parse_int(sys.argv[2], "hwnd")), ensure_ascii=False))
 
     elif cmd == "click":
         if len(sys.argv) < 5:
             print("Error: hwnd, x, y required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
-        x, y = int(sys.argv[3]), int(sys.argv[4])
+        hwnd = _parse_int(sys.argv[2], "hwnd")
+        x, y = _parse_int(sys.argv[3], "x"), _parse_int(sys.argv[4], "y")
         button = sys.argv[5] if len(sys.argv) > 5 else "left"
-        clicks = int(sys.argv[6]) if len(sys.argv) > 6 else 1
-        screenshot_id = int(sys.argv[7]) if len(sys.argv) > 7 else None
+        clicks = _parse_int(sys.argv[6], "clicks") if len(sys.argv) > 6 else 1
+        screenshot_id = _parse_int(sys.argv[7], "screenshot_id") if len(sys.argv) > 7 else None
         print(click(hwnd, x, y, button, clicks, screenshot_id))
 
     elif cmd == "type":
         if len(sys.argv) < 4:
             print("Error: hwnd and text required"); sys.exit(1)
-        print(type_text(int(sys.argv[2]), sys.argv[3]))
+        print(type_text(_parse_int(sys.argv[2], "hwnd"), sys.argv[3]))
 
     elif cmd == "key":
         if len(sys.argv) < 4:
             print("Error: hwnd and keys required"); sys.exit(1)
-        print(press_key(int(sys.argv[2]), sys.argv[3]))
+        print(press_key(_parse_int(sys.argv[2], "hwnd"), sys.argv[3]))
 
     elif cmd == "scroll":
         if len(sys.argv) < 6:
             print("Error: hwnd, x, y, dy required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
-        x, y, dy = int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
-        screenshot_id = int(sys.argv[6]) if len(sys.argv) > 6 else None
+        hwnd = _parse_int(sys.argv[2], "hwnd")
+        x, y, dy = _parse_int(sys.argv[3], "x"), _parse_int(sys.argv[4], "y"), _parse_int(sys.argv[5], "dy")
+        screenshot_id = _parse_int(sys.argv[6], "screenshot_id") if len(sys.argv) > 6 else None
         print(scroll(hwnd, x, y, dy, screenshot_id))
 
     elif cmd == "drag":
         if len(sys.argv) < 7:
             print("Error: hwnd, x1, y1, x2, y2 required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
-        x1, y1 = int(sys.argv[3]), int(sys.argv[4])
-        x2, y2 = int(sys.argv[5]), int(sys.argv[6])
-        screenshot_id = int(sys.argv[7]) if len(sys.argv) > 7 else None
+        hwnd = _parse_int(sys.argv[2], "hwnd")
+        x1, y1 = _parse_int(sys.argv[3], "x1"), _parse_int(sys.argv[4], "y1")
+        x2, y2 = _parse_int(sys.argv[5], "x2"), _parse_int(sys.argv[6], "y2")
+        screenshot_id = _parse_int(sys.argv[7], "screenshot_id") if len(sys.argv) > 7 else None
         print(drag(hwnd, x1, y1, x2, y2, 0.5, screenshot_id))
 
     elif cmd == "activate":
         if len(sys.argv) < 3:
             print("Error: hwnd required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
+        hwnd = _parse_int(sys.argv[2], "hwnd")
         if activate_window(hwnd):
             print(f"Activated window {hwnd}")
         else:
@@ -925,8 +935,8 @@ def main() -> None:
     elif cmd == "screenshot_b64":
         if len(sys.argv) < 3:
             print("Error: hwnd required"); sys.exit(1)
-        hwnd = int(sys.argv[2])
-        max_w = int(sys.argv[3]) if len(sys.argv) > 3 else 1280
+        hwnd = _parse_int(sys.argv[2], "hwnd")
+        max_w = _parse_int(sys.argv[3], "max_width") if len(sys.argv) > 3 else 1280
         if _helper_available():
             result = _helper_get(f"/screenshot_b64?hwnd={hwnd}&max_width={max_w}")
         else:
@@ -960,7 +970,7 @@ def main() -> None:
         elif subcmd == "target":
             if len(sys.argv) < 4:
                 print("Error: state target requires <hwnd>"); sys.exit(1)
-            print(json.dumps(_state_target(int(sys.argv[3])), ensure_ascii=False))
+            print(json.dumps(_state_target(_parse_int(sys.argv[3], "hwnd")), ensure_ascii=False))
         else:
             print(f"Error: Unknown state subcommand '{subcmd}'"); sys.exit(1)
 
