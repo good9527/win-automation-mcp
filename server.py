@@ -531,21 +531,21 @@ async def click(hwnd: Optional[int] = None, x: Optional[int] = None, y: Optional
 
         elif x is not None and y is not None:
             rect = _get_window_rect(hwnd)
-            logical_rect = ctypes.wintypes.RECT()
-            user32.GetWindowRect(hwnd, ctypes.byref(logical_rect))
-            log_w = logical_rect.right - logical_rect.left
-            log_h = logical_rect.bottom - logical_rect.top
+            win_w = rect.right - rect.left
+            win_h = rect.bottom - rect.top
+            if win_w <= 0 or win_h <= 0:
+                return f"Invalid window dimensions: {win_w}x{win_h}"
 
-            ss_w = screenshot_width or (1280 if log_w > 1280 else log_w)
-            ss_h = screenshot_height or (int(log_h * 1280 / log_w) if log_w > 1280 else log_h)
+            ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
+            ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
 
-            real_x = int(x * log_w / ss_w)
-            real_y = int(y * log_h / ss_h)
+            real_x = int(x * win_w / ss_w)
+            real_y = int(y * win_h / ss_h)
             screen_x = rect.left + real_x
             screen_y = rect.top + real_y
 
             pyautogui.click(screen_x, screen_y, button=button, clicks=clicks)
-            return f"Clicked at window logical ({real_x}, {real_y}) -> screen physical ({screen_x}, {screen_y}) [scaled from screenshot ({x}, {y})]"
+            return f"Clicked at window ({real_x}, {real_y}) -> screen ({screen_x}, {screen_y}) [scaled from screenshot ({x}, {y})]"
         else:
             return "Must provide either (x, y) coordinates or element index"
     except Exception as e:
@@ -624,16 +624,16 @@ async def scroll(x: int, y: int, scroll_y: int, hwnd: Optional[int] = None, scro
         time.sleep(0.1)
 
         rect = _get_window_rect(hwnd)
-        logical_rect = ctypes.wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(logical_rect))
-        log_w = logical_rect.right - logical_rect.left
-        log_h = logical_rect.bottom - logical_rect.top
+        win_w = rect.right - rect.left
+        win_h = rect.bottom - rect.top
+        if win_w <= 0 or win_h <= 0:
+            return f"Invalid window dimensions: {win_w}x{win_h}"
 
-        ss_w = screenshot_width or (1280 if log_w > 1280 else log_w)
-        ss_h = screenshot_height or (int(log_h * 1280 / log_w) if log_w > 1280 else log_h)
+        ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
+        ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
 
-        real_x = int(x * log_w / ss_w)
-        real_y = int(y * log_h / ss_h)
+        real_x = int(x * win_w / ss_w)
+        real_y = int(y * win_h / ss_h)
         screen_x = rect.left + real_x
         screen_y = rect.top + real_y
 
@@ -673,11 +673,11 @@ async def drag(start_x: int, start_y: int, end_x: int, end_y: int, hwnd: Optiona
         window_rect = _get_window_rect(hwnd)
         win_w = window_rect.right - window_rect.left
         win_h = window_rect.bottom - window_rect.top
+        if win_w <= 0 or win_h <= 0:
+            return f"Invalid window dimensions: {win_w}x{win_h}"
 
         ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
         ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
-
-        real_sx = int(start_x * win_w / ss_w)
         real_sy = int(start_y * win_h / ss_h)
         real_ex = int(end_x * win_w / ss_w)
         real_ey = int(end_y * win_h / ss_h)
@@ -863,6 +863,8 @@ async def hover(hwnd: Optional[int] = None, x: Optional[int] = None, y: Optional
             window_rect = _get_window_rect(hwnd)
             win_w = window_rect.right - window_rect.left
             win_h = window_rect.bottom - window_rect.top
+            if win_w <= 0 or win_h <= 0:
+                return f"Invalid window dimensions: {win_w}x{win_h}"
 
             ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
             ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
