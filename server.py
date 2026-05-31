@@ -22,7 +22,7 @@ from common import (
     MAX_PATH, PW_RENDERFULLCONTENT, SRCCOPY,
     STATE_FILE, _load_state, _save_state, _resolve_target,
     _get_dpi_scale, _get_window_rect, _get_process_name,
-    _enum_windows, _set_clipboard_text, _activate_window,
+    _enum_windows, _set_clipboard_text, _clipboard_save, _clipboard_restore, _activate_window,
     _check_safety,
 )
 
@@ -293,11 +293,13 @@ def _get_element_by_index(hwnd: int, index: int) -> Any:
 
 
 def _paste_text(text: str) -> None:
-    """Paste text via clipboard."""
+    """Paste text via clipboard, preserving user's clipboard."""
+    saved = _clipboard_save()
     _set_clipboard_text(text)
     time.sleep(0.05)
     pyautogui.hotkey("ctrl", "v")
     time.sleep(0.05)
+    _clipboard_restore(saved)
 
 
 def _parse_key_string(key_str: str) -> list[str]:
