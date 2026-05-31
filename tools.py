@@ -351,21 +351,6 @@ def _send_key_up(scancode: int) -> None:
     user32.SendInput(1, ctypes.pointer(inp), ctypes.sizeof(inp))
 
 
-def _send_char(ch: str) -> None:
-    code = ord(ch)
-    inp = INPUT()
-    inp.type = INPUT_KEYBOARD
-    inp.union.ki.wVk = 0
-    inp.union.ki.wScan = code
-    inp.union.ki.dwFlags = KEYEVENTF_UNICODE
-    inp.union.ki.time = 0
-    inp.union.ki.dwExtraInfo = ctypes.pointer(ctypes.c_ulong(0))
-    user32.SendInput(1, ctypes.pointer(inp), ctypes.sizeof(inp))
-    time.sleep(0.02)
-    inp.union.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
-    user32.SendInput(1, ctypes.pointer(inp), ctypes.sizeof(inp))
-
-
 def _send_ctrl_v() -> None:
     ctrl_sc = _KEYMAP.get("ctrl", 0x1D)
     v_sc = _KEYMAP.get("v", 0x2F)
