@@ -486,6 +486,11 @@ def screenshot(
         "dpi_scale": dpi_scale, "window_hwnd": hwnd,
     }
     _screenshots[ss_id] = meta
+    # Prune old entries to prevent unbounded growth
+    if len(_screenshots) > 50:
+        oldest = sorted(_screenshots.keys())[:-30]
+        for k in oldest:
+            del _screenshots[k]
     return meta
 
 

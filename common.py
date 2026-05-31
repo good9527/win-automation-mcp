@@ -212,6 +212,8 @@ gdi32.GetDIBits.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, cty
 gdi32.GetDIBits.restype = ctypes.c_int
 gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]
 gdi32.BitBlt.restype = ctypes.c_bool
+gdi32.GetDeviceCaps.argtypes = [ctypes.c_void_p, ctypes.c_int]
+gdi32.GetDeviceCaps.restype = ctypes.c_int
 
 # dwmapi
 try:
@@ -232,7 +234,7 @@ def _load_state() -> dict:
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-    except Exception:
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError, OSError):
         pass
     return {}
 
@@ -243,7 +245,7 @@ def _save_state(state: dict) -> None:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
         os.replace(tmp, STATE_FILE)
-    except Exception:
+    except (PermissionError, OSError):
         pass
 
 def _resolve_target(hwnd: Optional[int]) -> int:
@@ -279,8 +281,6 @@ def _get_dpi_scale(hwnd: int) -> float:
     try:
         hdc = user32.GetDC(hwnd)
         if hdc:
-            gdi32.GetDeviceCaps.argtypes = [ctypes.c_void_p, ctypes.c_int]
-            gdi32.GetDeviceCaps.restype = ctypes.c_int
             dpi = gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX = 88
             user32.ReleaseDC(hwnd, hdc)
             if dpi > 0:

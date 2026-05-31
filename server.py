@@ -9,8 +9,10 @@ import json
 import os
 import sys
 import time
+import io
 import threading
 from typing import Any, Optional
+from PIL import Image as PILImage
 
 # Shared constants, structs, utilities
 from common import (
@@ -46,8 +48,6 @@ _element_index_lock = threading.Lock()
 
 def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "jpeg") -> bytes:
     """Capture window screenshot using PrintWindow or BitBlt fallback. Returns image bytes."""
-    from PIL import Image as PILImage
-    import io
 
     # Physical bounds (visible bounds via DWM)
     rect = _get_window_rect(hwnd)

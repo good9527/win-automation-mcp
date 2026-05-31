@@ -132,6 +132,7 @@ def _capture_screenshot(hwnd: int, max_width: int = 1280) -> dict:
     """Capture window screenshot. Returns dict with path, width, height, dpi_scale."""
     from PIL import Image as PILImage
 
+    width, height = 0, 0
     rect = _get_window_rect(hwnd)
     win_w = rect.right - rect.left
     win_h = rect.bottom - rect.top
