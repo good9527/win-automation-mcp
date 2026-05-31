@@ -174,6 +174,7 @@ def _build_accessibility_tree(hwnd: int, max_depth: int = 10, max_elements: int 
         index_map = {}
         lines = []
         current_index = [0]
+        tree_walker = uia.CreateTreeWalker(uia.RawViewCondition)
 
         def walk(elem, depth, parent_info=""):
             if depth > max_depth or current_index[0] >= max_elements:
@@ -228,12 +229,11 @@ def _build_accessibility_tree(hwnd: int, max_depth: int = 10, max_elements: int 
                 line = f"{indent}[{idx}] {name_display} ({control_type}){pattern_str}{value_str}"
                 lines.append(line)
 
-                walker = uia.CreateTreeWalker(uia.RawViewCondition)
                 try:
-                    child = walker.GetFirstChildElement(elem)
+                    child = tree_walker.GetFirstChildElement(elem)
                     while child:
                         walk(child, depth + 1)
-                        next_child = walker.GetNextSiblingElement(child)
+                        next_child = tree_walker.GetNextSiblingElement(child)
                         child = next_child
                 except Exception:
                     pass
@@ -321,7 +321,9 @@ def _parse_key_string(key_str: str) -> list[str]:
         "period": ".", "greater": ">", "less": "<",
         "comma": ",", "slash": "/", "question": "?",
     }
-    parts = key_str.replace(" ", "").split("+")
+    parts = [p for p in key_str.replace(" ", "").split("+") if p]
+    if not parts:
+        raise ValueError("Empty key string")
     return [KEY_MAP.get(part, part.lower()) for part in parts]
 
 
@@ -424,15 +426,15 @@ async def launch_app(path_or_name: str) -> str:
         if result <= 32:
             return f"Failed to launch '{path_or_name}' (error code: {result})"
 
-        time.sleep(1.0)
-
-        after = _enum_windows()
-        new_windows = [w for w in after if w["hwnd"] not in before]
-        if new_windows:
-            w = new_windows[0]
-            return f"Launched '{path_or_name}' -> [{w['hwnd']}] {w['title']}"
-        else:
-            return f"Launched '{path_or_name}' but no new window detected. Check list_windows."
+        # Poll for new window with timeout (supports slow apps like Electron/UWP)
+        for _ in range(20):  # up to 4 seconds
+            time.sleep(0.2)
+            after = _enum_windows()
+            new_windows = [w for w in after if w["hwnd"] not in before]
+            if new_windows:
+                w = new_windows[0]
+                return f"Launched '{path_or_name}' -> [{w['hwnd']}] {w['title']}"
+        return f"Launched '{path_or_name}' but no new window detected within 4s. Check list_windows."
     except Exception as e:
         return f"Error launching app: {e}"
 
@@ -509,6 +511,10 @@ async def click(hwnd: Optional[int] = None, x: Optional[int] = None, y: Optional
     Element indexes are ephemeral - refresh with get_window_state if stale.
     """
     try:
+        if button not in ("left", "right", "middle"):
+            return f"Invalid button '{button}'. Use 'left', 'right', or 'middle'."
+        if clicks < 1:
+            return f"Invalid clicks {clicks}. Must be >= 1."
         hwnd = _resolve_target(hwnd)
         if not user32.IsWindow(hwnd):
             return f"Window {hwnd} no longer exists"
