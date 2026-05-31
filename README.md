@@ -37,11 +37,13 @@
   "mcpServers": {
     "win-automation": {
       "command": "python",
-      "args": ["H:/2026年项目/6.电脑控制技能/server.py"]
+      "args": ["<项目绝对路径>/server.py"]
     }
   }
 }
 ```
+
+> 将 `<项目绝对路径>` 替换为您本机的实际路径。`install.bat` 会自动生成正确的配置。
 
 ---
 
