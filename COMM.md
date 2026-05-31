@@ -9,9 +9,53 @@
 ---
 
 ## 当前状态
-- **轮次**: 3
-- **当前负责人**: tester
+- **轮次**: 4
+- **最新 commit**: b809b6b
+- **分支**: claude/happy-matsumoto-de6700
 - **阶段**: 等待测试
+
+## 完整优化记录（7 个新 commit）
+
+### 重构
+| Commit | 描述 |
+|--------|------|
+| 27295cb | 提取 common.py 共享模块，精简 1475 行 |
+
+### P0 修复
+| Commit | 描述 |
+|--------|------|
+| 7329671 | 剪贴板保存/恢复、NULL 检查、数字键盘扫描码 NumLock 感知 |
+
+### P1 修复
+| Commit | 描述 |
+|--------|------|
+| cf91f7d | 坐标系统一（DWM rect）、除零保护、安全检查单词边界匹配 |
+
+### P2 优化
+| Commit | 描述 |
+|--------|------|
+| 0e8ed31 | 剪贴板资源泄漏全面修复：OpenClipboard 检查、GlobalFree on SetClipboardData 失败、GlobalUnlock in finally、double null-terminator、统一 common.py 唯一来源 |
+| 07eb45f | GetDeviceCaps 原型移至模块级、screenshots dict 上限 50、_load_state 异常细化、PIL import 移至模块级、width/height 默认值初始化 |
+| b809b6b | batch 命令自动解析 target_hwnd、CLI hwnd 参数安全验证（_parse_int） |
+
+### 已修复的完整列表
+1. ✅ 原子状态文件写入
+2. ✅ 导航键 E0 扩展扫描码
+3. ✅ EXTENDEDKEY 标志
+4. ✅ GDI 泄漏修复（BitBlt 回退路径）
+5. ✅ MAX_PATH 修正为 260
+6. ✅ _paste_text 剪贴板保护
+7. ✅ _set_clipboard_text NULL 检查 + GlobalFree
+8. ✅ _clipboard_save/restore 统一到 common.py
+9. ✅ double null-terminator 修复
+10. ✅ 坐标系统一使用 DWM rect
+11. ✅ 坐标缩放除零保护
+12. ✅ _check_safety 单词边界匹配
+13. ✅ GetDeviceCaps 原型线程安全
+14. ✅ screenshots dict 上限
+15. ✅ _load_state 异常细化
+16. ✅ batch 命令 target_hwnd 解析
+17. ✅ CLI 输入安全验证
 
 ## 给 tester 的消息
 
