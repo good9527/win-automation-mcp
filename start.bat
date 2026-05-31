@@ -34,7 +34,7 @@ echo.
 echo [INFO] Exposing StdIO MCP Server (server.py)...
 echo To use this in Claude Desktop or Cursor, run:
 echo.
-python install.bat
+call install.bat
 echo.
 echo ===================================================
 echo   MCP Server is running! Press Ctrl+C to stop.

@@ -9,11 +9,10 @@ Use this skill to automate Windows applications via Python scripts.
 
 ## Quick Start
 
-The automation scripts are located in your active workspace folder:
-`H:/2026年项目/6.电脑控制技能/`
+The automation scripts are located in the same directory as this SKILL.md file.
 
-You can run commands relative to this folder, or use the absolute path:
-`python "H:/2026年项目/6.电脑控制技能/tools.py"`
+You can run commands relative to the project root:
+`python tools.py`
 
 **Helper server auto-starts** when you use input commands (click/type/key/scroll/drag).
 No manual setup needed — just run commands directly.
