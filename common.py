@@ -180,6 +180,8 @@ user32.SendInput.argtypes = [ctypes.c_uint, ctypes.POINTER(INPUT), ctypes.c_int]
 user32.SendInput.restype = ctypes.c_uint
 user32.GetDpiForWindow.argtypes = [ctypes.c_void_p]
 user32.GetDpiForWindow.restype = ctypes.c_uint
+user32.GetKeyState.argtypes = [ctypes.c_int]
+user32.GetKeyState.restype = ctypes.c_short
 
 # kernel32
 kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong]
@@ -376,12 +378,66 @@ def _set_clipboard_text(text: str) -> None:
         user32.EmptyClipboard()
         text_bytes = text.encode("utf-16-le") + b"\x00\x00"
         h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE | 0x0040, len(text_bytes))
+        if not h_mem:
+            user32.CloseClipboard()
+            return
         p_mem = kernel32.GlobalLock(h_mem)
+        if not p_mem:
+            kernel32.GlobalFree(h_mem)
+            user32.CloseClipboard()
+            return
         ctypes.memmove(p_mem, text_bytes, len(text_bytes))
         kernel32.GlobalUnlock(h_mem)
         user32.SetClipboardData(CF_UNICODETEXT, h_mem)
         user32.CloseClipboard()
     except Exception:
+        try:
+            user32.CloseClipboard()
+        except Exception:
+            pass
+
+
+def _clipboard_save() -> Optional[bytes]:
+    """Save current clipboard CF_UNICODETEXT; return raw bytes or None."""
+    if not user32.OpenClipboard(0):
+        return None
+    try:
+        h_data = user32.GetClipboardData(CF_UNICODETEXT)
+        if not h_data:
+            return None
+        p_data = kernel32.GlobalLock(h_data)
+        if not p_data:
+            return None
+        text = ctypes.wstring_at(p_data)
+        kernel32.GlobalUnlock(h_data)
+        return text.encode("utf-16-le") + b"\x00\x00"
+    except Exception:
+        return None
+    finally:
+        user32.CloseClipboard()
+
+
+def _clipboard_restore(saved: Optional[bytes]) -> None:
+    """Restore a previously saved CF_UNICODETEXT to the clipboard."""
+    if saved is None:
+        return
+    if not user32.OpenClipboard(0):
+        return
+    try:
+        user32.EmptyClipboard()
+        h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(saved))
+        if not h_mem:
+            return
+        p_mem = kernel32.GlobalLock(h_mem)
+        if not p_mem:
+            kernel32.GlobalFree(h_mem)
+            return
+        ctypes.memmove(p_mem, saved, len(saved))
+        kernel32.GlobalUnlock(h_mem)
+        user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+    except Exception:
+        pass
+    finally:
         try:
             user32.CloseClipboard()
         except Exception:
@@ -446,6 +502,24 @@ def _check_safety(action: str) -> dict:
 # ---------------------------------------------------------------------------
 # Key map: keysym -> Windows scancode (merged from tools.py + helper.py)
 # ---------------------------------------------------------------------------
+# Numpad digit keys use E0-prefixed scancodes (NumLock ON, default state).
+# When NumLock is OFF, they produce navigation keys instead.
+_NUMPAD_DIGIT_KEYS = {"KP_0", "KP_1", "KP_2", "KP_3", "KP_4", "KP_5", "KP_6", "KP_7", "KP_8", "KP_9", "KP_Decimal"}
+# Mapping from numpad key to its NumLock-OFF scancode (navigation key)
+_NUMPAD_NUMLOCK_OFF = {
+    "KP_0": 0x52, "KP_1": 0x4F, "KP_2": 0x50, "KP_3": 0x51, "KP_4": 0x4B,
+    "KP_5": 0x4C, "KP_6": 0x4D, "KP_7": 0x47, "KP_8": 0x48, "KP_9": 0x49,
+    "KP_Decimal": 0x53,
+}
+
+def _is_numlock_on() -> bool:
+    """Check if NumLock is currently on."""
+    try:
+        VK_NUMLOCK = 0x90
+        return bool(user32.GetKeyState(VK_NUMLOCK) & 0x0001)
+    except Exception:
+        return True  # Assume NumLock on by default
+
 _KEYMAP: dict[str, int] = {
     "escape": 0x01, "1": 0x02, "2": 0x03, "3": 0x04, "4": 0x05,
     "5": 0x06, "6": 0x07, "7": 0x08, "8": 0x09, "9": 0x0A, "0": 0x0B,
@@ -462,17 +536,17 @@ _KEYMAP: dict[str, int] = {
     "z": 0x2C, "x": 0x2D, "c": 0x2E, "v": 0x2F, "b": 0x30,
     "n": 0x31, "m": 0x32, "comma": 0x33, "period": 0x34, "slash": 0x35,
     "shift_r": 0x36, "Shift_R": 0x36,
-    "KP_Multiply": 0x37, "Alt_L": 0x38, "space": 0x39,
+    "KP_Multiply": 0x37, "KP_Divide": 0xE035, "Alt_L": 0x38, "space": 0x39,
     "Caps_Lock": 0x3A, "CapsLock": 0x3A,
     "F1": 0x3B, "F2": 0x3C, "F3": 0x3D, "F4": 0x3E,
     "F5": 0x3F, "F6": 0x40, "F7": 0x41, "F8": 0x42,
     "F9": 0x43, "F10": 0x44,
     "Num_Lock": 0x45, "NumLock": 0x45,
     "Scroll_Lock": 0x46, "ScrollLock": 0x46,
-    "KP_7": 0x47, "KP_8": 0x48, "KP_9": 0x49, "KP_Subtract": 0x4A,
-    "KP_4": 0x4B, "KP_5": 0x4C, "KP_6": 0x4D, "KP_Add": 0x4E,
-    "KP_1": 0x4F, "KP_2": 0x50, "KP_3": 0x51, "KP_0": 0x52,
-    "KP_Decimal": 0x53,
+    "KP_7": 0xE047, "KP_8": 0xE048, "KP_9": 0xE049, "KP_Subtract": 0x4A,
+    "KP_4": 0xE04B, "KP_5": 0xE04C, "KP_6": 0xE04D, "KP_Add": 0x4E,
+    "KP_1": 0xE04F, "KP_2": 0xE050, "KP_3": 0xE051, "KP_0": 0xE052,
+    "KP_Decimal": 0xE053,
     "F11": 0x57, "F12": 0x58,
     # Extended keys (0xE0 prefix)
     "Home": 0xE047, "Up": 0xE048, "Page_Up": 0xE049,
@@ -487,11 +561,24 @@ _KEYMAP: dict[str, int] = {
     "enter": 0x1C,
     "Escape": 0x01,
     "BackSpace": 0x0E,
+    # Lowercase numpad aliases (for helper.py key lookup)
+    "kp_0": 0xE052, "kp_1": 0xE04F, "kp_2": 0xE050, "kp_3": 0xE051,
+    "kp_4": 0xE04B, "kp_5": 0xE04C, "kp_6": 0xE04D, "kp_7": 0xE047,
+    "kp_8": 0xE048, "kp_9": 0xE049,
+    "kp_subtract": 0x4A, "kp_add": 0x4E, "kp_decimal": 0xE053,
+    "kp_multiply": 0x37, "kp_divide": 0xE035,
+    "num_lock": 0x45, "numlock": 0x45,
 }
 KEYMAP = _KEYMAP
 
 def _keysym_to_scancode(keysym: str) -> int:
-    """Map a keysym name (or single character) to a Windows scancode."""
+    """Map a keysym name (or single character) to a Windows scancode.
+    Numpad digit keys respect NumLock state."""
+    if keysym in _NUMPAD_DIGIT_KEYS:
+        if _is_numlock_on():
+            return _KEYMAP[keysym]  # E0-prefixed (digit)
+        else:
+            return _NUMPAD_NUMLOCK_OFF[keysym]  # Non-E0 (navigation)
     if keysym in _KEYMAP:
         return _KEYMAP[keysym]
     if len(keysym) == 1 and keysym.isalpha():
