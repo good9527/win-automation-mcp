@@ -830,8 +830,11 @@ def _batch_execute_local(command_name: str, args: dict) -> dict:
                             args.get("dy", 0), args.get("screenshot_id"))
             return {"ok": True, "message": result}
         elif command_name == "screenshot":
+            hwnd = args.get("hwnd")
+            if not hwnd:
+                return {"error": "hwnd required for screenshot"}
             output = args.get("output", os.path.join(os.path.dirname(__file__), "screenshot.jpg"))
-            result = screenshot(args.get("hwnd"), output, args.get("max_width", 1280))
+            result = screenshot(hwnd, output, args.get("max_width", 1280))
             return result
         else:
             return {"error": f"Unknown local command: {command_name}"}

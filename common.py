@@ -248,11 +248,12 @@ def _save_state(state: dict) -> None:
         pass
 
 def _resolve_target(hwnd: Optional[int]) -> int:
-    """Resolve hwnd, falling back to state target_hwnd if None. Persists target."""
+    """Resolve hwnd, falling back to state target_hwnd if None. Persists target only when changed."""
     if hwnd is not None:
         state = _load_state()
-        state["target_hwnd"] = hwnd
-        _save_state(state)
+        if state.get("target_hwnd") != hwnd:
+            state["target_hwnd"] = hwnd
+            _save_state(state)
         return hwnd
     state = _load_state()
     target = state.get("target_hwnd")
