@@ -40,7 +40,7 @@ from common import (
     MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
     STATE_FILE, _load_state, _save_state,
     _get_dpi_scale, _get_process_name,
-    _enum_windows, _set_clipboard_text, _check_safety,
+    _enum_windows, _set_clipboard_text, _clipboard_save, _clipboard_restore, _check_safety,
     _KEYMAP, _keysym_to_scancode, KEYMAP,
 )
 
@@ -370,43 +370,6 @@ def _send_ctrl_v() -> None:
 # ---------------------------------------------------------------------------
 # Clipboard save/restore
 # ---------------------------------------------------------------------------
-def _clipboard_save() -> Optional[bytes]:
-    if not user32.OpenClipboard(0):
-        return None
-    try:
-        h_data = user32.GetClipboardData(CF_UNICODETEXT)
-        if not h_data:
-            return None
-        p_data = kernel32.GlobalLock(h_data)
-        if not p_data:
-            return None
-        text = ctypes.wstring_at(p_data)
-        kernel32.GlobalUnlock(h_data)
-        return text.encode("utf-16-le") + b"\x00\x00"
-    except Exception:
-        return None
-    finally:
-        user32.CloseClipboard()
-
-
-def _clipboard_restore(saved: Optional[bytes]) -> None:
-    if saved is None:
-        return
-    if not user32.OpenClipboard(0):
-        return
-    try:
-        user32.EmptyClipboard()
-        h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(saved))
-        if h_mem:
-            p_mem = kernel32.GlobalLock(h_mem)
-            if p_mem:
-                ctypes.memmove(p_mem, saved, len(saved))
-                kernel32.GlobalUnlock(h_mem)
-                user32.SetClipboardData(CF_UNICODETEXT, h_mem)
-    except Exception:
-        pass
-    finally:
-        user32.CloseClipboard()
 
 
 # ---------------------------------------------------------------------------

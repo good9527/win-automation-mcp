@@ -34,7 +34,7 @@ from common import (
     MOUSEEVENTF_WHEEL,
     KEYMAP,
     _load_state, _save_state, _get_window_rect, _get_dpi_scale,
-    _get_process_name, _set_clipboard_text,
+    _get_process_name, _set_clipboard_text, _clipboard_save, _clipboard_restore,
 )
 
 # Auto-cleanup temporary screenshot file on daemon termination
@@ -126,51 +126,6 @@ def _activate_window(hwnd: int) -> bool:
         return False
 
 
-def _clipboard_save() -> bytes | None:
-    """Save current clipboard text. Returns bytes or None."""
-    try:
-        if not user32.OpenClipboard(0):
-            return None
-        h = user32.GetClipboardData(CF_UNICODETEXT)
-        if not h:
-            user32.CloseClipboard()
-            return None
-        p = kernel32.GlobalLock(h)
-        if not p:
-            user32.CloseClipboard()
-            return None
-        text = ctypes.c_wchar_p(p).value or ""
-        kernel32.GlobalUnlock(h)
-        user32.CloseClipboard()
-        return text.encode("utf-16-le")
-    except Exception:
-        try:
-            user32.CloseClipboard()
-        except Exception:
-            pass
-        return None
-
-
-def _clipboard_restore(data: bytes | None) -> None:
-    """Restore clipboard from saved bytes."""
-    if data is None:
-        return
-    try:
-        if not user32.OpenClipboard(0):
-            return
-        user32.EmptyClipboard()
-        text_bytes = data + b"\x00\x00"
-        h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(text_bytes))
-        p_mem = kernel32.GlobalLock(h_mem)
-        ctypes.memmove(p_mem, text_bytes, len(text_bytes))
-        kernel32.GlobalUnlock(h_mem)
-        user32.SetClipboardData(CF_UNICODETEXT, h_mem)
-        user32.CloseClipboard()
-    except Exception:
-        try:
-            user32.CloseClipboard()
-        except Exception:
-            pass
 
 
 def _capture_screenshot(hwnd: int, max_width: int = 1280) -> dict:
@@ -544,7 +499,7 @@ class HelperHandler(BaseHTTPRequestHandler):
             saved = _clipboard_save()
             if saved:
                 try:
-                    text = saved.decode("utf-16-le")
+                    text = saved.decode("utf-16-le").rstrip("\x00")
                 except Exception:
                     text = ""
                 self._send_json({"text": text})

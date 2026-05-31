@@ -373,24 +373,23 @@ def _enum_windows() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 def _set_clipboard_text(text: str) -> None:
     """Set clipboard text using Windows API with proper error handling."""
+    if not user32.OpenClipboard(0):
+        return
     try:
-        user32.OpenClipboard(0)
         user32.EmptyClipboard()
         text_bytes = text.encode("utf-16-le") + b"\x00\x00"
         h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE | 0x0040, len(text_bytes))
         if not h_mem:
-            user32.CloseClipboard()
             return
         p_mem = kernel32.GlobalLock(h_mem)
         if not p_mem:
             kernel32.GlobalFree(h_mem)
-            user32.CloseClipboard()
             return
         ctypes.memmove(p_mem, text_bytes, len(text_bytes))
         kernel32.GlobalUnlock(h_mem)
-        user32.SetClipboardData(CF_UNICODETEXT, h_mem)
-        user32.CloseClipboard()
-    except Exception:
+        if not user32.SetClipboardData(CF_UNICODETEXT, h_mem):
+            kernel32.GlobalFree(h_mem)
+    finally:
         try:
             user32.CloseClipboard()
         except Exception:
@@ -398,9 +397,11 @@ def _set_clipboard_text(text: str) -> None:
 
 
 def _clipboard_save() -> Optional[bytes]:
-    """Save current clipboard CF_UNICODETEXT; return raw bytes or None."""
+    """Save current clipboard CF_UNICODETEXT; return raw bytes (with null terminator) or None."""
     if not user32.OpenClipboard(0):
         return None
+    h_data = None
+    p_data = None
     try:
         h_data = user32.GetClipboardData(CF_UNICODETEXT)
         if not h_data:
@@ -409,20 +410,26 @@ def _clipboard_save() -> Optional[bytes]:
         if not p_data:
             return None
         text = ctypes.wstring_at(p_data)
-        kernel32.GlobalUnlock(h_data)
         return text.encode("utf-16-le") + b"\x00\x00"
     except Exception:
         return None
     finally:
-        user32.CloseClipboard()
+        if p_data and h_data:
+            kernel32.GlobalUnlock(h_data)
+        try:
+            user32.CloseClipboard()
+        except Exception:
+            pass
 
 
 def _clipboard_restore(saved: Optional[bytes]) -> None:
-    """Restore a previously saved CF_UNICODETEXT to the clipboard."""
+    """Restore a previously saved CF_UNICODETEXT to the clipboard.
+    saved should include the null terminator (as returned by _clipboard_save)."""
     if saved is None:
         return
     if not user32.OpenClipboard(0):
         return
+    h_mem = None
     try:
         user32.EmptyClipboard()
         h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(saved))
@@ -431,12 +438,16 @@ def _clipboard_restore(saved: Optional[bytes]) -> None:
         p_mem = kernel32.GlobalLock(h_mem)
         if not p_mem:
             kernel32.GlobalFree(h_mem)
+            h_mem = None
             return
         ctypes.memmove(p_mem, saved, len(saved))
         kernel32.GlobalUnlock(h_mem)
-        user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+        if not user32.SetClipboardData(CF_UNICODETEXT, h_mem):
+            kernel32.GlobalFree(h_mem)
+            h_mem = None
     except Exception:
-        pass
+        if h_mem:
+            kernel32.GlobalFree(h_mem)
     finally:
         try:
             user32.CloseClipboard()
