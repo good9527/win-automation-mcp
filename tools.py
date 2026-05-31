@@ -209,16 +209,16 @@ def enum_windows() -> List[Dict[str, Any]]:
 def _scale_coords(
     hwnd: int, x: int, y: int, screenshot_id: Optional[int] = None,
 ) -> Tuple[int, int, str]:
+    """Scale screenshot-pixel coordinates to physical screen coordinates.
+    Uses DWM visible rect consistently for both ratio and offset."""
     global _last_screenshot_size
 
     rect = _get_window_rect(hwnd)
     if rect is None:
         raise RuntimeError(f"Cannot get window rect for hwnd {hwnd}")
 
-    logical_rect = ctypes.wintypes.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(logical_rect))
-    log_w = logical_rect.right - logical_rect.left
-    log_h = logical_rect.bottom - logical_rect.top
+    win_w = rect[2] - rect[0]  # right - left
+    win_h = rect[3] - rect[1]  # bottom - top
 
     ss_w, ss_h = None, None
     if screenshot_id is not None and screenshot_id in _screenshots:
@@ -227,20 +227,24 @@ def _scale_coords(
         ss_h = meta["height"]
 
     if not ss_w:
-        ss_w = 1280 if log_w > 1280 else log_w
+        ss_w = min(1280, win_w) if win_w > 0 else 1280
     if not ss_h:
-        ss_h = int(log_h * 1280 / log_w) if log_w > 1280 else log_h
+        ss_h = int(win_h * 1280 / win_w) if win_w > 0 else win_h
 
-    scale = _get_dpi_scale(hwnd)
+    # Guard against division by zero
+    if ss_w <= 0:
+        ss_w = 1
+    if ss_h <= 0:
+        ss_h = 1
 
-    real_x = x * log_w / ss_w
-    real_y = y * log_h / ss_h
-    phys_x = int(real_x + rect[0])  # rect[0] = left
-    phys_y = int(real_y + rect[1])  # rect[1] = top
+    real_x = int(x * win_w / ss_w)
+    real_y = int(y * win_h / ss_h)
+    phys_x = rect[0] + real_x
+    phys_y = rect[1] + real_y
 
     return phys_x, phys_y, (
         f"screenshot({x},{y}) -> screen({phys_x},{phys_y}) "
-        f"[log {log_w}x{log_h}, ss {ss_w}x{ss_h}, dpi_scale={scale:.2f}]"
+        f"[win {win_w}x{win_h}, ss {ss_w}x{ss_h}]"
     )
 
 

@@ -478,8 +478,11 @@ _DANGEROUS_ACTIONS = {
     "update_permissions": {"category": "System settings", "description": "This action changes permissions"},
 }
 
+import re
+
 def _check_safety(action: str) -> dict:
-    """Check if an action requires user confirmation before proceeding."""
+    """Check if an action requires user confirmation before proceeding.
+    Uses word-boundary matching to avoid false positives (e.g. 'reinstalls' != 'install')."""
     action_lower = action.lower().replace(" ", "_").replace("-", "_")
     if action_lower in _DANGEROUS_ACTIONS:
         info = _DANGEROUS_ACTIONS[action_lower]
@@ -489,8 +492,9 @@ def _check_safety(action: str) -> dict:
             "description": info["description"],
             "action": action,
         }
+    # Word-boundary match: "install" matches "install_chrome" but NOT "reinstalls"
     for keyword, info in _DANGEROUS_ACTIONS.items():
-        if keyword in action_lower:
+        if re.search(r'(?:^|[_\s])' + re.escape(keyword) + r'(?:$|[_\s])', action_lower):
             return {
                 "needs_confirmation": True,
                 "category": info["category"],

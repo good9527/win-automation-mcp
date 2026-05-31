@@ -302,6 +302,32 @@ def _paste_text(text: str) -> None:
     _clipboard_restore(saved)
 
 
+def _scale_screenshot_to_screen(hwnd: int, x: int, y: int,
+                                screenshot_width: int | None = None,
+                                screenshot_height: int | None = None) -> tuple[int, int, int, int]:
+    """Scale screenshot-pixel coordinates to physical screen coordinates.
+    Uses DWM visible rect consistently for both ratio and offset.
+    Returns (screen_x, screen_y, window_x, window_y)."""
+    rect = _get_window_rect(hwnd)
+    win_w = rect.right - rect.left
+    win_h = rect.bottom - rect.top
+
+    ss_w = screenshot_width or min(1280, win_w) if win_w > 0 else 1280
+    ss_h = screenshot_height or min(int(win_h * 1280 / win_w), win_h) if win_w > 0 else win_h
+
+    # Guard against division by zero
+    if ss_w <= 0:
+        ss_w = 1
+    if ss_h <= 0:
+        ss_h = 1
+
+    real_x = int(x * win_w / ss_w)
+    real_y = int(y * win_h / ss_h)
+    screen_x = rect.left + real_x
+    screen_y = rect.top + real_y
+    return screen_x, screen_y, real_x, real_y
+
+
 def _parse_key_string(key_str: str) -> list[str]:
     """Parse key string like 'Control_L+c' into pyautogui key list."""
     KEY_MAP = {
@@ -530,22 +556,11 @@ async def click(hwnd: Optional[int] = None, x: Optional[int] = None, y: Optional
                 return f"Error clicking element [{index}]: {e}"
 
         elif x is not None and y is not None:
-            rect = _get_window_rect(hwnd)
-            logical_rect = ctypes.wintypes.RECT()
-            user32.GetWindowRect(hwnd, ctypes.byref(logical_rect))
-            log_w = logical_rect.right - logical_rect.left
-            log_h = logical_rect.bottom - logical_rect.top
-
-            ss_w = screenshot_width or (1280 if log_w > 1280 else log_w)
-            ss_h = screenshot_height or (int(log_h * 1280 / log_w) if log_w > 1280 else log_h)
-
-            real_x = int(x * log_w / ss_w)
-            real_y = int(y * log_h / ss_h)
-            screen_x = rect.left + real_x
-            screen_y = rect.top + real_y
+            screen_x, screen_y, real_x, real_y = _scale_screenshot_to_screen(
+                hwnd, x, y, screenshot_width, screenshot_height)
 
             pyautogui.click(screen_x, screen_y, button=button, clicks=clicks)
-            return f"Clicked at window logical ({real_x}, {real_y}) -> screen physical ({screen_x}, {screen_y}) [scaled from screenshot ({x}, {y})]"
+            return f"Clicked at window ({real_x}, {real_y}) -> screen ({screen_x}, {screen_y}) [from screenshot ({x}, {y})]"
         else:
             return "Must provide either (x, y) coordinates or element index"
     except Exception as e:
@@ -623,19 +638,8 @@ async def scroll(x: int, y: int, scroll_y: int, hwnd: Optional[int] = None, scro
         _activate_window(hwnd)
         time.sleep(0.1)
 
-        rect = _get_window_rect(hwnd)
-        logical_rect = ctypes.wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(logical_rect))
-        log_w = logical_rect.right - logical_rect.left
-        log_h = logical_rect.bottom - logical_rect.top
-
-        ss_w = screenshot_width or (1280 if log_w > 1280 else log_w)
-        ss_h = screenshot_height or (int(log_h * 1280 / log_w) if log_w > 1280 else log_h)
-
-        real_x = int(x * log_w / ss_w)
-        real_y = int(y * log_h / ss_h)
-        screen_x = rect.left + real_x
-        screen_y = rect.top + real_y
+        screen_x, screen_y, real_x, real_y = _scale_screenshot_to_screen(
+            hwnd, x, y, screenshot_width, screenshot_height)
 
         if scroll_y != 0:
             pyautogui.scroll(-scroll_y, x=screen_x, y=screen_y)
@@ -670,27 +674,13 @@ async def drag(start_x: int, start_y: int, end_x: int, end_y: int, hwnd: Optiona
         _activate_window(hwnd)
         time.sleep(0.1)
 
-        window_rect = _get_window_rect(hwnd)
-        win_w = window_rect.right - window_rect.left
-        win_h = window_rect.bottom - window_rect.top
-
-        ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
-        ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
-
-        real_sx = int(start_x * win_w / ss_w)
-        real_sy = int(start_y * win_h / ss_h)
-        real_ex = int(end_x * win_w / ss_w)
-        real_ey = int(end_y * win_h / ss_h)
-
-        sx = window_rect.left + real_sx
-        sy = window_rect.top + real_sy
-        ex = window_rect.left + real_ex
-        ey = window_rect.top + real_ey
+        sx, sy, rsx, rsy = _scale_screenshot_to_screen(hwnd, start_x, start_y, screenshot_width, screenshot_height)
+        ex, ey, rex, rey = _scale_screenshot_to_screen(hwnd, end_x, end_y, screenshot_width, screenshot_height)
 
         pyautogui.moveTo(sx, sy)
         pyautogui.drag(ex - sx, ey - sy, duration=duration, button=button)
 
-        return f"Dragged from ({real_sx},{real_sy}) to ({real_ex},{real_ey}) [scaled from screenshot start ({start_x},{start_y}) to ({end_x},{end_y})]"
+        return f"Dragged from ({rsx},{rsy}) to ({rex},{rey}) [from screenshot ({start_x},{start_y}) to ({end_x},{end_y})]"
     except Exception as e:
         return f"Error dragging: {e}"
 
@@ -860,20 +850,11 @@ async def hover(hwnd: Optional[int] = None, x: Optional[int] = None, y: Optional
                 return f"Error hovering over element [{index}]: {e}"
 
         elif x is not None and y is not None:
-            window_rect = _get_window_rect(hwnd)
-            win_w = window_rect.right - window_rect.left
-            win_h = window_rect.bottom - window_rect.top
-
-            ss_w = screenshot_width or (1280 if win_w > 1280 else win_w)
-            ss_h = screenshot_height or (int(win_h * 1280 / win_w) if win_w > 1280 else win_h)
-
-            real_x = int(x * win_w / ss_w)
-            real_y = int(y * win_h / ss_h)
-            screen_x = window_rect.left + real_x
-            screen_y = window_rect.top + real_y
+            screen_x, screen_y, real_x, real_y = _scale_screenshot_to_screen(
+                hwnd, x, y, screenshot_width, screenshot_height)
 
             pyautogui.moveTo(screen_x, screen_y)
-            return f"Hovered at window ({real_x}, {real_y}) -> screen ({screen_x}, {screen_y}) [scaled from screenshot ({x}, {y})]"
+            return f"Hovered at window ({real_x}, {real_y}) -> screen ({screen_x}, {screen_y}) [from screenshot ({x}, {y})]"
         else:
             return "Must provide either (x, y) coordinates or element index"
     except Exception as e:
