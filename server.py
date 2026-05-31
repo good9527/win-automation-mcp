@@ -97,44 +97,45 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "
         width = win_w
         height = win_h
 
-    # Prepare bitmap info
-    bmi = BITMAPINFO()
-    bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-    bmi.bmiHeader.biWidth = width
-    bmi.bmiHeader.biHeight = -height  # Top-down
-    bmi.bmiHeader.biPlanes = 1
-    bmi.bmiHeader.biBitCount = 32
-    bmi.bmiHeader.biCompression = 0  # BI_RGB
+    # Prepare bitmap info and extract pixel data (protected GDI section)
+    try:
+        bmi = BITMAPINFO()
+        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        bmi.bmiHeader.biWidth = width
+        bmi.bmiHeader.biHeight = -height  # Top-down
+        bmi.bmiHeader.biPlanes = 1
+        bmi.bmiHeader.biBitCount = 32
+        bmi.bmiHeader.biCompression = 0  # BI_RGB
 
-    # Get pixel data
-    buf_size = width * height * 4
-    buf = ctypes.create_string_buffer(buf_size)
-    gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
+        # Get pixel data
+        buf_size = width * height * 4
+        buf = ctypes.create_string_buffer(buf_size)
+        gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
 
-    # Convert to PIL Image
-    img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
-    img = img.convert("RGB")
+        # Convert to PIL Image
+        img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
+        img = img.convert("RGB")
 
-    # Scale down if needed
-    if width > max_width:
-        ratio = max_width / width
-        new_height = int(height * ratio)
-        img = img.resize((max_width, new_height), PILImage.LANCZOS)
+        # Scale down if needed
+        if width > max_width:
+            ratio = max_width / width
+            new_height = int(height * ratio)
+            img = img.resize((max_width, new_height), PILImage.LANCZOS)
 
-    # Convert to bytes
-    output = io.BytesIO()
-    if format.lower() in ("jpeg", "jpg"):
-        img.save(output, format="JPEG", quality=85)
-    else:
-        img.save(output, format="PNG", optimize=True)
-    img_data = output.getvalue()
-
-    # Cleanup
-    gdi32.SelectObject(hdc_mem, old_bmp)
-    gdi32.DeleteObject(hbitmap)
-    gdi32.DeleteDC(hdc_mem)
-    if hdc:
-        user32.ReleaseDC(hwnd, hdc)
+        # Convert to bytes
+        output = io.BytesIO()
+        if format.lower() in ("jpeg", "jpg"):
+            img.save(output, format="JPEG", quality=85)
+        else:
+            img.save(output, format="PNG", optimize=True)
+        img_data = output.getvalue()
+    finally:
+        # Cleanup GDI resources
+        gdi32.SelectObject(hdc_mem, old_bmp)
+        gdi32.DeleteObject(hbitmap)
+        gdi32.DeleteDC(hdc_mem)
+        if hdc:
+            user32.ReleaseDC(hwnd, hdc)
 
     return img_data
 
