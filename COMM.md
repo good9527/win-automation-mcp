@@ -9,12 +9,12 @@
 ---
 
 ## 当前状态
-- **轮次**: 4
-- **最新 commit**: b809b6b
+- **轮次**: 5
+- **最新 commit**: c3083cc
 - **分支**: claude/happy-matsumoto-de6700
 - **阶段**: 等待测试
 
-## 完整优化记录（7 个新 commit）
+## 完整优化记录（9 个新 commit，从 master 分支后）
 
 ### 重构
 | Commit | 描述 |
@@ -31,14 +31,24 @@
 |--------|------|
 | cf91f7d | 坐标系统一（DWM rect）、除零保护、安全检查单词边界匹配 |
 
-### P2 优化
+### P2 优化（深度修复）
 | Commit | 描述 |
 |--------|------|
-| 0e8ed31 | 剪贴板资源泄漏全面修复：OpenClipboard 检查、GlobalFree on SetClipboardData 失败、GlobalUnlock in finally、double null-terminator、统一 common.py 唯一来源 |
-| 07eb45f | GetDeviceCaps 原型移至模块级、screenshots dict 上限 50、_load_state 异常细化、PIL import 移至模块级、width/height 默认值初始化 |
-| b809b6b | batch 命令自动解析 target_hwnd、CLI hwnd 参数安全验证（_parse_int） |
+| 0e8ed31 | 剪贴板资源泄漏全面修复 + 统一到 common.py 唯一来源 |
+| 07eb45f | GetDeviceCaps 原型线程安全、screenshots dict 上限、异常细化、import 优化 |
+| b809b6b | batch 命令 target_hwnd 自动解析、CLI 输入安全验证 |
+| c3083cc | **GDI try/finally 保护** — server.py + tools.py 截图函数所有 GDI 资源异常安全 |
 
-### 已修复的完整列表
+### 代码统计
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| common.py | 601 | 共享常量/结构体/函数原型/工具函数 |
+| server.py | 893 | MCP 服务器（11 个工具） |
+| helper.py | 658 | HTTP 后台守护进程（SendInput） |
+| tools.py | 1006 | CLI 接口（15+ 命令） |
+| **总计** | **3158** | 原始 4116 行 → 减少 23% |
+
+### 已修复的完整列表（19 项）
 1. ✅ 原子状态文件写入
 2. ✅ 导航键 E0 扩展扫描码
 3. ✅ EXTENDEDKEY 标志
@@ -56,6 +66,12 @@
 15. ✅ _load_state 异常细化
 16. ✅ batch 命令 target_hwnd 解析
 17. ✅ CLI 输入安全验证
+18. ✅ **截图函数 GDI try/finally 保护**
+19. ✅ PIL import 移至模块级
+
+### 已知遗留问题
+- COM 线程安全（#7）：MCP 服务器 COM 对象跨线程访问风险，需 CoInitializeEx MTA 或专用线程
+- helper.py batch 命令 monkey-patch（#8）：HTTPServer 单线程下安全，多线程配置需重构
 
 ## 给 tester 的消息
 
