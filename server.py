@@ -140,16 +140,6 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "
     return img_data
 
 
-def _get_client_offset(hwnd: int) -> tuple[int, int]:
-    """Get client area offset from window rect."""
-    window_rect = ctypes.wintypes.RECT()
-    client_rect = ctypes.wintypes.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(window_rect))
-    user32.GetClientRect(hwnd, ctypes.byref(client_rect))
-    point = ctypes.wintypes.POINT(0, 0)
-    user32.ClientToScreen(hwnd, ctypes.byref(point))
-    return (point.x - window_rect.left, point.y - window_rect.top)
-
 
 def _build_accessibility_tree(hwnd: int, max_depth: int = 10, max_elements: int = 500) -> tuple[str, dict[int, Any], str, str]:
     """Build accessibility tree using UI Automation. Returns (tree_text, index_map, focused_element, selected_text)."""
