@@ -141,8 +141,12 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "
 
 
 
+# Global UIAutomation instance (created once, reused)
+_uia_instance = None
+
 def _build_accessibility_tree(hwnd: int, max_depth: int = 10, max_elements: int = 500) -> tuple[str, dict[int, Any], str, str]:
     """Build accessibility tree using UI Automation. Returns (tree_text, index_map, focused_element, selected_text)."""
+    global _uia_instance
     try:
         import comtypes
         import comtypes.client
@@ -153,10 +157,12 @@ def _build_accessibility_tree(hwnd: int, max_depth: int = 10, max_elements: int 
         except Exception:
             pass
 
-        uia = comtypes.client.CreateObject(
-            '{ff48dba4-60ef-4201-aa87-54103eef594e}',
-            interface=UIAClient.IUIAutomation
-        )
+        if _uia_instance is None:
+            _uia_instance = comtypes.client.CreateObject(
+                '{ff48dba4-60ef-4201-aa87-54103eef594e}',
+                interface=UIAClient.IUIAutomation
+            )
+        uia = _uia_instance
 
         element = uia.ElementFromHandle(hwnd)
         if not element:
