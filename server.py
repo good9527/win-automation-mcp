@@ -62,81 +62,87 @@ def _capture_window_screenshot(hwnd: int, max_width: int = 1280, format: str = "
     log_w = logical_rect.right - logical_rect.left
     log_h = logical_rect.bottom - logical_rect.top
 
-    # Create device context and bitmap
-    hdc = user32.GetDC(hwnd)
-    hdc_mem = gdi32.CreateCompatibleDC(hdc)
-
-    # Use logical size for PrintWindow to prevent black/empty borders
-    hbitmap = gdi32.CreateCompatibleBitmap(hdc, log_w, log_h)
-    old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
-
-    # Capture window
-    captured = user32.PrintWindow(hwnd, hdc_mem, PW_RENDERFULLCONTENT)
-    if not captured:
-        # Fallback: try without PW_RENDERFULLCONTENT
-        captured = user32.PrintWindow(hwnd, hdc_mem, 0)
-
-    if captured:
-        width = log_w
-        height = log_h
-    else:
-        # Fallback: BitBlt from screen DC (physical size)
-        gdi32.SelectObject(hdc_mem, old_bmp)
-        gdi32.DeleteObject(hbitmap)
-        gdi32.DeleteDC(hdc_mem)
-        user32.ReleaseDC(hwnd, hdc)
-
-        hdc = 0  # Mark as already released
-        hdc_screen = user32.GetDC(0)
-        hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
-        hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
+    # Track GDI resources for safe cleanup
+    hdc = None
+    hdc_mem = None
+    hbitmap = None
+    old_bmp = None
+    try:
+        # Create device context and bitmap
+        hdc = user32.GetDC(hwnd)
+        hdc_mem = gdi32.CreateCompatibleDC(hdc)
+        hbitmap = gdi32.CreateCompatibleBitmap(hdc, log_w, log_h)
         old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
-        gdi32.BitBlt(hdc_mem, 0, 0, win_w, win_h,
-                     hdc_screen, rect.left, rect.top, SRCCOPY)
-        user32.ReleaseDC(0, hdc_screen)
-        width = win_w
-        height = win_h
 
-    # Prepare bitmap info
-    bmi = BITMAPINFO()
-    bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-    bmi.bmiHeader.biWidth = width
-    bmi.bmiHeader.biHeight = -height  # Top-down
-    bmi.bmiHeader.biPlanes = 1
-    bmi.bmiHeader.biBitCount = 32
-    bmi.bmiHeader.biCompression = 0  # BI_RGB
+        # Capture window
+        captured = user32.PrintWindow(hwnd, hdc_mem, PW_RENDERFULLCONTENT)
+        if not captured:
+            captured = user32.PrintWindow(hwnd, hdc_mem, 0)
 
-    # Get pixel data
-    buf_size = width * height * 4
-    buf = ctypes.create_string_buffer(buf_size)
-    gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
+        if captured:
+            width = log_w
+            height = log_h
+        else:
+            # Fallback: BitBlt from screen DC (physical size)
+            gdi32.SelectObject(hdc_mem, old_bmp); old_bmp = None
+            gdi32.DeleteObject(hbitmap); hbitmap = None
+            gdi32.DeleteDC(hdc_mem); hdc_mem = None
+            user32.ReleaseDC(hwnd, hdc); hdc = None
 
-    # Convert to PIL Image
-    img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
-    img = img.convert("RGB")
+            hdc_screen = user32.GetDC(0)
+            try:
+                hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+                hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
+                old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
+                gdi32.BitBlt(hdc_mem, 0, 0, win_w, win_h,
+                             hdc_screen, rect.left, rect.top, SRCCOPY)
+            finally:
+                user32.ReleaseDC(0, hdc_screen)
+            width = win_w
+            height = win_h
 
-    # Scale down if needed
-    if width > max_width:
-        ratio = max_width / width
-        new_height = int(height * ratio)
-        img = img.resize((max_width, new_height), PILImage.LANCZOS)
+        # Prepare bitmap info
+        bmi = BITMAPINFO()
+        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        bmi.bmiHeader.biWidth = width
+        bmi.bmiHeader.biHeight = -height  # Top-down
+        bmi.bmiHeader.biPlanes = 1
+        bmi.bmiHeader.biBitCount = 32
+        bmi.bmiHeader.biCompression = 0  # BI_RGB
 
-    # Convert to bytes
-    output = io.BytesIO()
-    if format.lower() in ("jpeg", "jpg"):
-        img.save(output, format="JPEG", quality=85)
-    else:
-        img.save(output, format="PNG", optimize=True)
-    img_data = output.getvalue()
+        # Get pixel data
+        buf_size = width * height * 4
+        buf = ctypes.create_string_buffer(buf_size)
+        gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
 
-    # Cleanup
-    gdi32.SelectObject(hdc_mem, old_bmp)
-    gdi32.DeleteObject(hbitmap)
-    gdi32.DeleteDC(hdc_mem)
-    if hdc:
-        user32.ReleaseDC(hwnd, hdc)
+        # Convert to PIL Image
+        img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
+        img = img.convert("RGB")
 
-    return img_data
+        # Scale down if needed
+        if width > max_width:
+            ratio = max_width / width
+            new_height = int(height * ratio)
+            img = img.resize((max_width, new_height), PILImage.LANCZOS)
+
+        # Convert to bytes
+        output = io.BytesIO()
+        if format.lower() in ("jpeg", "jpg"):
+            img.save(output, format="JPEG", quality=85)
+        else:
+            img.save(output, format="PNG", optimize=True)
+        return output.getvalue()
+
+    finally:
+        # Always release GDI resources
+        if old_bmp and hdc_mem:
+            gdi32.SelectObject(hdc_mem, old_bmp)
+        if hbitmap:
+            gdi32.DeleteObject(hbitmap)
+        if hdc_mem:
+            gdi32.DeleteDC(hdc_mem)
+        if hdc:
+            user32.ReleaseDC(hwnd, hdc)
 
 
 def _get_client_offset(hwnd: int) -> tuple[int, int]:

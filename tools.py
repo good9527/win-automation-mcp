@@ -406,53 +406,42 @@ def screenshot(
 
     dpi_scale = _get_dpi_scale(hwnd)
 
-    hdc_window = user32.GetDC(hwnd)
-    hdc_mem = gdi32.CreateCompatibleDC(hdc_window)
-    hbitmap = gdi32.CreateCompatibleBitmap(hdc_window, log_w, log_h)
-    old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
+    # Track GDI resources for safe cleanup
+    hdc = None
+    hdc_mem = None
+    hbitmap = None
+    old_bmp = None
+    try:
+        hdc = user32.GetDC(hwnd)
+        hdc_mem = gdi32.CreateCompatibleDC(hdc)
+        hbitmap = gdi32.CreateCompatibleBitmap(hdc, log_w, log_h)
+        old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
 
-    result = user32.PrintWindow(hwnd, hdc_mem, PW_RENDERFULLCONTENT)
-    if not result:
-        result = user32.PrintWindow(hwnd, hdc_mem, 0)
+        result = user32.PrintWindow(hwnd, hdc_mem, PW_RENDERFULLCONTENT)
+        if not result:
+            result = user32.PrintWindow(hwnd, hdc_mem, 0)
 
-    if not result:
-        # BitBlt fallback
-        gdi32.SelectObject(hdc_mem, old_bmp)
-        gdi32.DeleteObject(hbitmap)
-        gdi32.DeleteDC(hdc_mem)
-        user32.ReleaseDC(hwnd, hdc_window)
+        if not result:
+            # BitBlt fallback — release PrintWindow resources first
+            gdi32.SelectObject(hdc_mem, old_bmp); old_bmp = None
+            gdi32.DeleteObject(hbitmap); hbitmap = None
+            gdi32.DeleteDC(hdc_mem); hdc_mem = None
+            user32.ReleaseDC(hwnd, hdc); hdc = None
 
-        hdc_screen = user32.GetDC(0)
-        hdc_mem2 = gdi32.CreateCompatibleDC(hdc_screen)
-        hbitmap2 = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
-        gdi32.SelectObject(hdc_mem2, hbitmap2)
-        gdi32.BitBlt(hdc_mem2, 0, 0, win_w, win_h,
-                      hdc_screen, win_left, win_top, SRCCOPY)
-
-        width = win_w
-        height = win_h
-
-        bmi = BITMAPINFO()
-        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-        bmi.bmiHeader.biWidth = width
-        bmi.bmiHeader.biHeight = -height
-        bmi.bmiHeader.biPlanes = 1
-        bmi.bmiHeader.biBitCount = 32
-        bmi.bmiHeader.biCompression = 0
-
-        buf_size = width * height * 4
-        buf = ctypes.create_string_buffer(buf_size)
-        gdi32.GetDIBits(hdc_mem2, hbitmap2, 0, height, buf, ctypes.byref(bmi), 0)
-
-        img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
-
-        gdi32.SelectObject(hdc_mem2, gdi32.GetCurrentObject(hdc_mem2, 7))
-        gdi32.DeleteObject(hbitmap2)
-        gdi32.DeleteDC(hdc_mem2)
-        user32.ReleaseDC(0, hdc_screen)
-    else:
-        width = log_w
-        height = log_h
+            hdc_screen = user32.GetDC(0)
+            try:
+                hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+                hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, win_w, win_h)
+                old_bmp = gdi32.SelectObject(hdc_mem, hbitmap)
+                gdi32.BitBlt(hdc_mem, 0, 0, win_w, win_h,
+                              hdc_screen, win_left, win_top, SRCCOPY)
+            finally:
+                user32.ReleaseDC(0, hdc_screen)
+            width = win_w
+            height = win_h
+        else:
+            width = log_w
+            height = log_h
 
         bmi = BITMAPINFO()
         bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
@@ -465,13 +454,17 @@ def screenshot(
         buf_size = width * height * 4
         buf = ctypes.create_string_buffer(buf_size)
         gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
-
         img = PILImage.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
 
-        gdi32.SelectObject(hdc_mem, old_bmp)
-        gdi32.DeleteObject(hbitmap)
-        gdi32.DeleteDC(hdc_mem)
-        user32.ReleaseDC(hwnd, hdc_window)
+    finally:
+        if old_bmp and hdc_mem:
+            gdi32.SelectObject(hdc_mem, gdi32.GetCurrentObject(hdc_mem, 7))
+        if hbitmap:
+            gdi32.DeleteObject(hbitmap)
+        if hdc_mem:
+            gdi32.DeleteDC(hdc_mem)
+        if hdc:
+            user32.ReleaseDC(hwnd, hdc)
 
     img = img.convert("RGB")
     if width > max_width:
