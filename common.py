@@ -7,6 +7,7 @@ import ctypes
 import ctypes.wintypes
 import json
 import os
+import re
 import time
 from typing import Any, Optional
 
@@ -490,7 +491,7 @@ def _check_safety(action: str) -> dict:
             "action": action,
         }
     for keyword, info in _DANGEROUS_ACTIONS.items():
-        if keyword in action_lower:
+        if re.search(r'\b' + re.escape(keyword) + r'\b', action_lower):
             return {
                 "needs_confirmation": True,
                 "category": info["category"],
