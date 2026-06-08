@@ -12,7 +12,13 @@ test_ocr_output.json
 
 # Local config & state
 .win-auto-state.json
+.win-auto-state.json.tmp
 .vscode/
 .idea/
 .gemini/
 .claude/
+
+# Test artifacts and distribution archives
+test_screenshot.jpg
+test_screenshot.png
+*.zip

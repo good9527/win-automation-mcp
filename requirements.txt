@@ -2,3 +2,5 @@ pyautogui>=0.9.54
 pillow>=10.0.0
 comtypes>=1.2.0
 mcp>=0.1.0
+# Optional: dxcam (GPU-accelerated screenshots via helper.py)
+# Install with: pip install dxcam

@@ -13,7 +13,8 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
-from server import _enum_windows, _capture_window_screenshot, _build_accessibility_tree
+from common import _enum_windows
+from server import _capture_window_screenshot, _build_accessibility_tree
 
 def test_enum_windows():
     """Test window enumeration."""
