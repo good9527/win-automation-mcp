@@ -1,0 +1,8 @@
+mcp==1.26.0
+PyAutoGUI==0.9.54
+Pillow==10.2.0
+comtypes==1.4.16
+numpy==2.1.0
+opencv-python==4.13.0.92
+pytesseract==0.3.13
+dxcam==0.3.0

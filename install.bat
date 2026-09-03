@@ -17,7 +17,7 @@ if errorlevel 1 (
 
 REM Install dependencies
 echo [1/3] Installing Python dependencies...
-pip install mcp comtypes pillow pyautogui --quiet
+pip install -r "%~dp0requirements.txt" --quiet
 if errorlevel 1 (
     echo [WARNING] Some dependencies failed to install
 )
@@ -57,4 +57,3 @@ echo.
 echo 4. Test: type "list_apps" in Claude Code / Cursor
 echo.
 pause
-

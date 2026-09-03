@@ -1,18 +1,99 @@
-# Python
+# ===========================================================================
+# win-automation-mcp Comprehensive .gitignore
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Python Bytecode & Cache
+# ---------------------------------------------------------------------------
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.class
 *.pyd
+*.so
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Temporary diagnostic captures
-test_ocr_input.png
-test_raw_ocr.txt
-win_auto_ocr_*
-test_ocr_output.json
+# ---------------------------------------------------------------------------
+# Testing & Code Quality
+# ---------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
 
-# Local config & state
+# ---------------------------------------------------------------------------
+# Concurrency State & Runtime Locks
+# ---------------------------------------------------------------------------
 .win-auto-state.json
+.win-auto-state.json.lock
+*.lock
+*.state
+*.state.json
+.state_tmp_*
+.win_auto_state_*
+
+# ---------------------------------------------------------------------------
+# Temporary Screenshots, Visual Artifacts & OCR Dumps
+# ---------------------------------------------------------------------------
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.webp
+*.ico
+output/
+test_ocr_*
+win_auto_ocr_*
+test_raw_ocr.txt
+test_ocr_output.json
+*.ps1
+
+# ---------------------------------------------------------------------------
+# Build Artifacts, Packaging & Logs
+# ---------------------------------------------------------------------------
+*.log
+*.zip
+*.tar
+*.tar.gz
+*.7z
+dist/
+build/
+packaging/cache/
+*.spec
+
+# ---------------------------------------------------------------------------
+# IDEs, Editors & OS Files
+# ---------------------------------------------------------------------------
 .vscode/
 .idea/
-.gemini/
 .claude/
+.gemini/
+.cursor/
+*.swp
+*.swo
+*~
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
+
+# ---------------------------------------------------------------------------
+# Multi-Agent Working Directory (internal scaffolding, not for distribution)
+# ---------------------------------------------------------------------------
+.agents/
+
+# ---------------------------------------------------------------------------
+# Auto-generated scaffold / build helper scripts
+# ---------------------------------------------------------------------------
+build-release.cmd
+build_all.py
+build_full_test_suite.py
+generate_suite.py
+generate_test_files.py
+make_all_suites.py
+make_suite.py
+make_test_tier1.py

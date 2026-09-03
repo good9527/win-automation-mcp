@@ -1,0 +1,6 @@
+interface:
+  display_name: "Desktop Control Portable"
+  short_description: "Control Windows apps through portable MCP and CLI automation"
+  default_prompt: "Use $desktop-control-portable to observe and safely control the requested Windows application."
+policy:
+  allow_implicit_invocation: true

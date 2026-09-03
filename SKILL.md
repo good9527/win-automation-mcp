@@ -1,221 +1,124 @@
-﻿---
-name: win-automation
-description: Control Windows applications - screenshots, UI automation, keyboard/mouse input
+---
+name: desktop-control-portable
+description: Control Windows desktop applications through UIA, desktop-root UIA, Win32, HMENU, MSAA, OCR, image matching, screenshots, and safe input fallbacks. Use when Codex needs to open, observe, focus, click, type, select, drag, scroll, wait for, verify, or diagnose Windows software, dialogs, taskbar UI, custom-rendered controls, elevated applications, or multi-step desktop workflows.
 ---
 
-# Windows Automation
+# Desktop Control
 
-Use this skill to automate Windows applications via Python scripts.
+Use the enhanced local engine in this repository. Prefer MCP tools when the
+client exposes the `win-automation` server. Use `CONTROL.cmd` when MCP is not
+available, or run `python tools.py ...` from this repository during development.
 
-## Quick Start
+## Safety gate
 
-The automation scripts are located in your active workspace folder:
-`H:/2026年项目/6.电脑控制技能/`
+Treat desktop actions as real user actions. Before destructive, financial,
+account, permission, installation, deletion, message-sending, or irreversible
+operations:
 
-You can run commands relative to this folder, or use the absolute path:
-`python "H:/2026年项目/6.电脑控制技能/tools.py"`
+1. Call `check_safety` or `python tools.py confirm "<plain-language action>"`.
+2. Ask the user for explicit confirmation when the result says confirmation is required.
+3. For multi-step work, execute through `execute_batch` or `batch` with
+   `confirmed: true` only after that confirmation. Without it, the engine must
+   return `confirmation_required` and perform no step.
+4. Verify the final state and report what changed.
 
-**Helper server auto-starts** when you use input commands (click/type/key/scroll/drag).
-No manual setup needed — just run commands directly.
+Never treat a risk diagnostic as approval. Do not use coordinate clicks to
+evade the safety gate.
 
-## Commands
+See [safety and verification](references/safety.md) for the payload contract.
 
-### 1. List Windows
-```bash
-python "tools.py" list_windows
+## Standard workflow
+
+1. Acquire a stable target with `list_windows`, `list_apps`, `launch`,
+   `wait_window`, or `wait_event`. Reuse an existing window when possible.
+2. Run `observe` or `get_window_state` before acting. Refresh the observation
+   after navigation, dialog creation, layout replacement, or a stale index.
+3. Activate the top-level window and focus the actual input control before
+   typing or sending shortcuts.
+4. Select the most semantic available action using the order below.
+5. Prefer waits over fixed sleeps when the UI is asynchronous.
+6. Add a postcondition such as `verify`, `uia_wait`, `win32_control_wait`,
+   `pixel_wait`, `visual_stable_wait`, or a negative absence check.
+7. Return the normalized result, including whether the action was verified.
+
+## Action priority
+
+Use these layers in order and descend only when the higher layer is missing,
+unreliable, or explicitly skipped:
+
+1. UIA selectors/actions, desktop-root UIA, Win32 controls, HMENU, and MSAA.
+2. Smart helpers: `smart-click`, `smart-text`, `smart-select`, `smart-cell`,
+   and their wait variants.
+3. OCR, screenshots, image matching, pixel probes, and visual row helpers.
+4. Raw mouse and keyboard input only when semantic paths are unavailable.
+
+Use stable selectors whenever possible: `automation_id`, `control_type`,
+`class_name`, process/title constraints, row/column metadata, or a fresh
+observation index. Coordinate and image actions must use a fresh screenshot,
+bounded region, and explicit verification.
+
+## Common commands
+
+```powershell
+python tools.py list_windows
+python tools.py observe <hwnd>
+python tools.py activate <hwnd>
+python tools.py smart-click <hwnd> --name "Save" --type button
+python tools.py smart-wait-click <hwnd> --name "OK" --type button --timeout 10
+python tools.py smart-text <hwnd> "text" --name "Search" --type edit
+python tools.py smart-select <hwnd> "Beta" --type listbox
+python tools.py smart-cell <hwnd> --row-text "Beta" --column-name "State"
+python tools.py wait-event object-show --hwnd <hwnd> --timeout 5
+python tools.py file-dialog open "C:\Path\file.txt" --verify-close
+python tools.py control-boundary <hwnd>
+python tools.py helper-status
+python tools.py selftest selector
 ```
-Returns: `[{hwnd, title, pid, process_name, process_path, rect}]`
 
-### 2. List Apps (grouped by process)
-```bash
-python "tools.py" list_apps
-```
-Returns:
+For the full CLI surface, read [CLI reference](references/cli.md). For MCP
+tool names and argument conventions, read [MCP reference](references/mcp.md).
+
+## Recovery rules
+
+- Window not found: list or wait for windows, then rebind by title/process/PID.
+- Stale UIA index: refresh the accessibility tree; use selector repair only
+  when the returned suggestion preserves identity and control constraints.
+- Dynamic dialog or menu: use `wait-event`, `wait-window`, or the smart dialog
+  action; do not guess a coordinate.
+- UIPI/elevation failure: run `control-boundary`; start the elevated helper
+  only when it reports `uipi_risk` or `needs_elevation`.
+- Bad UIA provider: use `skip_uia`/`--no-uia` and try native Win32 controls.
+- Visual-only target: capture a fresh screenshot, constrain the region, use
+  OCR/image matching, then verify the resulting state.
+- Timeout: preserve the failure category and diagnostics, and retry only with
+  a documented recovery branch and a bounded timeout budget.
+
+See [recovery reference](references/recovery.md) for detailed patterns.
+
+## Batch execution
+
+Use `execute_batch` or `batch` for multi-step workflows. Include
+`stop_on_error`, a bounded `timeout_budget`, and cleanup/failure branches when
+appropriate. Add `expect` to steps whose final state matters. Use
+`plan_only: true` to inspect an automatic fallback plan before execution.
+
+Example:
+
 ```json
-[{
-  "app_name": "cloudmusic.exe",
-  "app_path": "C:\\Program Files\\NetEase\\CloudMusic\\cloudmusic.exe",
-  "is_running": true,
-  "windows": [{"hwnd": 131472, "title": "...", "pid": 21000, "rect": {...}}]
-}]
+{
+  "commands": [
+    {"command": "activate", "args": {"hwnd": 123}},
+    {"command": "smart_click", "args": {"hwnd": 123, "name": "Save", "control_type": "button"}, "expect": {"ok": true}},
+    {"command": "wait_event", "args": {"event": "object-show", "hwnd": 123, "timeout": 5}}
+  ],
+  "stop_on_error": true,
+  "timeout_budget": 30
+}
 ```
 
-### 3. Screenshot (save to file)
-```bash
-python "tools.py" screenshot <hwnd> [output.jpg]
-```
-> [!IMPORTANT]
-> ALWAYS use `.jpg` or `.jpeg` (e.g. `screenshot.jpg`) rather than `.png`. JPEG images are 10x smaller in file size, which prevents HTTP 400 errors from API payload limits.
+## References
 
-Returns: `{id, path, width, height, dpi_scale, window_hwnd}`
-
-### 4. Screenshot (base64 — recommended for viewing)
-```bash
-python "tools.py" screenshot_b64 <hwnd>
-```
-Returns: `{base64, width, height, dpi_scale}` — image encoded as base64 string.
-
-> [!CAUTION]
-> **Image viewing compatibility**: Some AI clients' Read/file tools do NOT properly render `.jpg`/`.png` files as visual content — they degrade to plain text file paths, causing the model to never actually "see" the screenshot. If this happens:
-> 1. **Preferred**: Use `screenshot_b64` instead of `screenshot`. The base64 data is returned directly in command output — no file Read needed.
-> 2. **Alternative**: After saving a screenshot file, copy it to clipboard and paste it into the chat instead of using the Read tool.
-> 3. **MCP mode**: If running as an MCP server, `get_window_state` returns images through the MCP protocol which always works correctly.
-
-### 5. Accessibility Tree
-```bash
-python "tools.py" accessibility <hwnd>
-```
-Returns: element tree with indexes + focused_element + selected_text
-
-### 6. Click
-```bash
-python "tools.py" click <hwnd> <x> <y> [button] [clicks] [screenshot_id]
-```
-- Coordinates are in screenshot space, auto-scaled to window
-- Uses helper server for cross-process input (works with Chromium/NW.js apps)
-- **Set `clicks=2` for double-click** (e.g. open file, play song in playlist)
-
-### 7. Type Text (Unicode/Chinese supported)
-```bash
-python "tools.py" type <hwnd> "text"
-```
-Uses clipboard paste via helper server — works in all app types.
-
-### 8. Press Key
-```bash
-python "tools.py" key <hwnd> "Control_L+c"
-```
-Keys: Return, Escape, space, Tab, BackSpace, Delete, Up, Down, Left, Right, F1-F12, KP_0-KP_9, Menu, etc.
-
-### 9. Scroll
-```bash
-python "tools.py" scroll <hwnd> <x> <y> <dy> [screenshot_id]
-```
-dy>0 scrolls down, dy<0 scrolls up. Cursor moves to position first.
-
-### 10. Drag
-```bash
-python "tools.py" drag <hwnd> <x1> <y1> <x2> <y2> [duration]
-```
-
-### 11. Activate Window
-```bash
-python "tools.py" activate <hwnd>
-```
-Uses AttachThreadInput trick for reliable activation.
-
-### 12. Get Window Info
-```bash
-python "tools.py" get_window <hwnd>
-```
-Returns window title, position, size, process info, and DPI scale.
-
-### 13. Batch Operations
-Execute multiple commands in a single call:
-```bash
-python "tools.py" batch '[{"command":"activate","args":{"hwnd":131472}},{"command":"key","args":{"hwnd":131472,"keys":"space"}}]'
-```
-Each item is `{"command": "<name>", "args": {...}}`. Supported commands: `activate`, `click`, `type`, `key`, `scroll`, `screenshot`.
-
-### 14. State Management
-Persistent state that survives between tool calls:
-```bash
-# Set target window (click/type/key/scroll auto-use this when no hwnd given)
-python "tools.py" state target <hwnd>
-
-# Get state
-python "tools.py" state get
-python "tools.py" state get target_hwnd
-
-# Set arbitrary key/value
-python "tools.py" state set last_screenshot '{"id":1,"path":"..."}'
-```
-
-### 15. Safety Check
-Check if an action requires user confirmation:
-```bash
-python "tools.py" confirm "delete file.txt"
-```
-Returns `{needs_confirmation: true/false, category, description}`.
-
-## Workflow Example
-
-```bash
-# Step 1: Find target window
-python "tools.py" list_windows
-
-# Step 2: Set target window for auto-resolution
-python "tools.py" state target <hwnd>
-
-# Step 3: Screenshot (helper auto-starts if needed)
-python "tools.py" screenshot <hwnd>
-
-# Step 4: Interact (hwnd now auto-resolved from state)
-python "tools.py" click <hwnd> 100 200
-python "tools.py" type <hwnd> "Hello World"
-python "tools.py" key <hwnd> "Return"
-
-# Or use batch for multiple actions at once:
-python "tools.py" batch '[
-  {"command":"activate","args":{"hwnd":131472}},
-  {"command":"type","args":{"hwnd":131472,"text":"Hello"}},
-  {"command":"key","args":{"hwnd":131472,"keys":"Return"}}
-]'
-```
-
-## Architecture
-
-```
-tools.py (CLI) ──HTTP──▶ helper.py (常驻后台) ──SendInput──▶ 目标应用
-                         (端口 18765)
-```
-
-- **helper.py**: 在桌面会话中持续运行，处理所有输入操作
-- **tools.py**: 每次 Bash 调用时，自动检测并连接 helper
-- 如果 helper 未运行，输入命令会自动启动它
-- **State**: 持久化状态存储在 `~/.win-auto-state.json`
-
-## Key Format
-
-X11 keysym-style names with `+` separator:
-- `Control_L+c` → Ctrl+C
-- `Control_L+Shift_L+s` → Ctrl+Shift+S
-- `Alt_L+F4` → Alt+F4
-- `Return` → Enter
-- `Escape` → ESC
-- `space` → Space
-- `KP_0` through `KP_9` → Numpad keys
-- `Menu` → Context menu key
-
-## Safety Confirmations
-
-The following actions require explicit user confirmation before execution:
-- **Delete data**: Any action that deletes files, messages, or data
-- **Install software**: Running newly downloaded executables
-- **Financial**: Any monetary transactions or subscriptions
-- **Account creation**: Creating new accounts or API keys
-- **Send messages**: Posting comments, sending messages to others
-- **System settings**: Changing security/privacy settings
-
-Use `python tools.py confirm "<action>"` to check if an action needs confirmation.
-The tool returns `{needs_confirmation: true, category, description}` when confirmation is required.
-The LLM should ask the user before proceeding with any confirmed-dangerous action.
-
-## Technical Details
-
-- **Input**: Via persistent helper process (SendInput in same desktop session)
-- **Screenshots**: dxcam (fastest) → PrintWindow → BitBlt fallback
-- **Activation**: AttachThreadInput trick for reliable foreground switching
-- **DPI**: Per-monitor DPI aware, scale factor returned with screenshots
-- **Clipboard**: Saved and restored after paste operations
-- **Unicode**: Full support via KEYEVENTF_UNICODE input
-- **State**: Persistent JSON state at `~/.win-auto-state.json` for target hwnd and more
-- **Batch**: Execute multiple commands in one call via helper server or local fallback
-
-## Error Handling
-
-- Helper not running → auto-started on first input command
-- Window closed → error message with recovery guidance
-- Element stale → "Call accessibility to refresh"
-- Screenshot failed → dxcam → PrintWindow → BitBlt fallback attempted automatically
-- No hwnd given → falls back to stored target_hwnd from state
+- [CLI reference](references/cli.md): command families, flags, and examples.
+- [MCP reference](references/mcp.md): preferred MCP tools and parameters.
+- [Safety and verification](references/safety.md): confirmation and result contract.
+- [Recovery](references/recovery.md): window, selector, helper, and visual fallback recovery.

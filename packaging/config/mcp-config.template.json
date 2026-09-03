@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "win-automation": {
+      "command": "<PACKAGE_ROOT>\\runtime\\python.exe",
+      "args": [
+        "<PACKAGE_ROOT>\\app\\server.py"
+      ],
+      "env": {
+        "DESKTOP_CONTROL_HOME": "<PACKAGE_ROOT>",
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}
