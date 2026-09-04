@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 
 try:
     import dxcam
-except ImportError:
+except Exception:
     dxcam = None
 
 

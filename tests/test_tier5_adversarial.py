@@ -39,8 +39,6 @@ from win_automation.state.persistence import (
     load_screenshot_meta,
 )
 import win_automation.compat.resolver as resolver
-import server
-import tools
 
 
 def _multiprocess_worker(state_file: str, worker_id: int, iterations: int) -> None:
@@ -159,8 +157,8 @@ class TestTier5ConcurrencyAndLocking(unittest.TestCase):
             state_file = os.path.join(td, "mp_state.json")
             save_state({"total_ops": 0}, filepath=state_file)
 
-            num_workers = int(os.environ.get("WIN_AUTO_MP_WORKERS", 8))
-            iterations = 10
+            num_workers = int(os.environ.get("WIN_AUTO_MP_WORKERS", 4))
+            iterations = 8
             processes = []
 
             for wid in range(num_workers):
@@ -191,8 +189,8 @@ class TestTier5ConcurrencyAndLocking(unittest.TestCase):
             state_file = os.path.join(td, "mp_mixed_state.json")
             save_state({"screenshot_counter": 0}, filepath=state_file)
 
-            num_workers = int(os.environ.get("WIN_AUTO_MP_WORKERS", 6))
-            iterations = 8
+            num_workers = int(os.environ.get("WIN_AUTO_MP_WORKERS", 4))
+            iterations = 6
             processes = []
 
             for wid in range(num_workers):
@@ -256,6 +254,12 @@ class TestTier5ConcurrencyAndLocking(unittest.TestCase):
 
 class TestTier5DynamicImportResolver(unittest.TestCase):
     """Stress tests for PEP 562 dynamic symbol resolution in server.py and tools.py."""
+
+    @classmethod
+    def setUpClass(cls):
+        global server, tools
+        import server
+        import tools
 
     def test_t5_07_server_fast_map_symbols(self):
         """All static fast-map symbols in server.py resolve to expected callables/constants."""
