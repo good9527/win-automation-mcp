@@ -78,7 +78,7 @@ pytest tests/ -v
 ## 5. Escalated Implementation Defects
 
 ### Defect DEF-01: Legacy `server.py` Contains UTF-8 BOM
-- **Location**: `H:\2026年项目\6.电脑控制技能\server.py` (Line 1, Bytes 0-2)
+- **Location**: `server.py` (Line 1, Bytes 0-2)
 - **Observed**: `b'\xef\xbb\xbf'` detected at start of `server.py`.
 - **Failing Test**: `tests/test_tier1_features.py::TestF2BOMAbsenceAndRepoHygiene::test_f2_01_server_py_no_utf8_bom`
 - **Impact**: UTF-8 BOM causes encoding mismatches in Windows command shells and violates Requirement R6 clean file formatting rules.

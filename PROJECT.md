@@ -4,7 +4,7 @@
 The `win-automation-mcp` project is refactored from two monolithic scripts (`tools.py` 51k lines, `server.py` 33k lines) into a high-performance, modular Python package `win_automation/` with thin backward-compatible root entrypoints and a standalone test suite in `tests/`.
 
 ```
-H:\2026年项目\6.电脑控制技能/
+win-automation-mcp/
 ├── win_automation/               # Modular Core Package
 │   ├── __init__.py               # Package metadata & exports
 │   ├── core/                     # Common types, Win32 structures (29 ctypes classes), DPI awareness, utils
