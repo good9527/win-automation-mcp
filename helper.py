@@ -4338,6 +4338,23 @@ def main():
         EXPECTED_TOKEN = generate_session_token()
         os.environ["WIN_AUTOMATION_HELPER_TOKEN"] = EXPECTED_TOKEN
 
+    token_file = os.path.expanduser("~/.win-auto-helper.token")
+    try:
+        with open(token_file, "w", encoding="utf-8") as tf:
+            tf.write(EXPECTED_TOKEN)
+    except Exception:
+        pass
+
+    def _cleanup_token():
+        try:
+            if os.path.exists(token_file):
+                with open(token_file, "r", encoding="utf-8") as tf:
+                    if tf.read().strip() == EXPECTED_TOKEN:
+                        os.remove(token_file)
+        except Exception:
+            pass
+    atexit.register(_cleanup_token)
+
     server = ThreadingHTTPServer(("127.0.0.1", port), HelperHandler)
     server.daemon_threads = True
     print(f"Helper server running on http://127.0.0.1:{port}", flush=True)

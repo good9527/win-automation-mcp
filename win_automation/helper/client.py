@@ -41,24 +41,48 @@ def _control_boundary_safe(hwnd: int) -> Dict[str, Any]:
         return {}
 
 
+def _token_file_path() -> str:
+    return os.path.expanduser("~/.win-auto-helper.token")
+
+
 def get_session_token() -> str:
-    """Get active session token, generating one if not already created."""
+    """Get active session token, reading from token file if running helper exists."""
     global _session_token
     env_token = os.environ.get("WIN_AUTOMATION_HELPER_TOKEN")
     if env_token:
         _session_token = env_token
         return env_token
+    tf = _token_file_path()
+    if os.path.exists(tf):
+        try:
+            with open(tf, "r", encoding="utf-8") as f:
+                val = f.read().strip()
+                if val:
+                    _session_token = val
+                    return val
+        except Exception:
+            pass
     if _session_token is None:
         _session_token = generate_session_token()
         os.environ["WIN_AUTOMATION_HELPER_TOKEN"] = _session_token
+        try:
+            with open(tf, "w", encoding="utf-8") as f:
+                f.write(_session_token)
+        except Exception:
+            pass
     return _session_token
 
 
 def set_session_token(token: str) -> None:
-    """Set active session token."""
+    """Set active session token and update token file."""
     global _session_token
     _session_token = token
     os.environ["WIN_AUTOMATION_HELPER_TOKEN"] = token
+    try:
+        with open(_token_file_path(), "w", encoding="utf-8") as f:
+            f.write(token)
+    except Exception:
+        pass
 
 
 def _helper_path() -> str:
